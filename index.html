@@ -14,7 +14,9 @@
   <meta property="og:image" content="https://nawar21.github.io/RuWebsite/assets/og.jpg">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="RuRobotics logo with the line: Factories change. Robots should too.">
   <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:site" content="@RuRoboticsac">
   <meta name="twitter:title" content="RuRobotics — Adaptable robot workcells">
   <meta name="twitter:description" content="Factories change. Robots should too. Real2Sim2Real automation for high-mix factories.">
   <meta name="twitter:image" content="https://nawar21.github.io/RuWebsite/assets/og.jpg">
@@ -64,15 +66,39 @@
               <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>
               Watch the video
             </a>
-            <a class="btn btn--ghost" data-linkedin href="#contact" target="_blank" rel="noopener">
+            <a class="btn btn--ghost" data-linkedin href="https://www.linkedin.com/in/nawar-sgier-24269519b/" target="_blank" rel="noopener">
               <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9.75h4v11H3v-11zm6.5 0h3.8v1.5h.06c.53-1 1.83-2.06 3.77-2.06 4.03 0 4.77 2.65 4.77 6.1v5.46h-4v-4.84c0-1.16-.02-2.64-1.61-2.64-1.61 0-1.86 1.26-1.86 2.56v4.92h-4v-11z"/></svg>
               LinkedIn
             </a>
+            <a class="btn btn--ghost btn--icon" href="https://x.com/RuRoboticsac" target="_blank" rel="noopener" aria-label="RuRobotics on X">
+              <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+              <span aria-hidden="true">X</span>
+            </a>
           </div>
         </div>
-        <figure class="hero__media">
-          <img src="assets/ur5-lab-workcell.jpg" alt="UR5 robot arm with a gripper and wrist camera above a desk with laptops running code, in a lab with 3D printers" width="1200" height="1600" fetchpriority="high">
-          <figcaption>UR5 workcell · gripper + wrist camera</figcaption>
+        <figure class="hero__media hud">
+          <img src="assets/ur5-lab-workcell.jpg" alt="UR5 robot arm with a gripper and wrist camera above a desk with laptops running code, one showing a scan of the cell, in a lab with 3D printers" width="1200" height="1500" fetchpriority="high">
+          <div class="hud__layer" aria-hidden="true">
+            <span class="hud__corner hud__corner--tl"></span>
+            <span class="hud__corner hud__corner--tr"></span>
+            <span class="hud__corner hud__corner--bl"></span>
+            <span class="hud__corner hud__corner--br"></span>
+            <span class="hud__scan"></span>
+            <span class="hud__readout">UR5 · Lab workcell</span>
+            <!-- Leader lines drawn in image pixel space (image is exactly 4:5, shown uncropped) -->
+            <svg class="hud__lines" viewBox="0 0 1200 1500" preserveAspectRatio="none">
+              <polyline points="770,258 640,340 540,340" />
+              <polyline points="866,268 960,380 960,392" />
+              <polyline points="150,860 250,720 330,720" />
+            </svg>
+            <span class="hud__dot" style="left:64.2%;top:17.2%"></span>
+            <span class="hud__dot" style="left:72.2%;top:17.9%;animation-delay:.8s"></span>
+            <span class="hud__dot" style="left:12.5%;top:57.3%;animation-delay:1.6s"></span>
+            <span class="hud__label hud__label--left" style="left:45%;top:22.67%">Gripper</span>
+            <span class="hud__label hud__label--below" style="left:80%;top:26.1%">Wrist camera</span>
+            <span class="hud__label hud__label--right" style="left:27.5%;top:48%">Cell scan → digital twin</span>
+          </div>
+          <figcaption>UR5 workcell in the lab</figcaption>
         </figure>
       </div>
     </section>
@@ -144,54 +170,105 @@
           <p class="eyebrow">How it works</p>
           <h2>Real → Sim → Real</h2>
         </div>
-        <ol class="steps">
-          <li class="step reveal">
-            <span class="step__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3.5"/></svg>
-            </span>
-            <span class="step__num">1</span>
-            <h3>Scan</h3>
-            <p>Capture the workcell and calibrate the cameras.</p>
-          </li>
-          <li class="step reveal">
-            <span class="step__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 7l9 5 9-5-9-5z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/></svg>
-            </span>
-            <span class="step__num">2</span>
-            <h3>Simulate</h3>
-            <p>Planning and reinforcement learning in a digital twin.</p>
-          </li>
-          <li class="step reveal">
-            <span class="step__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-            </span>
-            <span class="step__num">3</span>
-            <h3>Deploy</h3>
-            <p>Validate the policy at the real cell.</p>
-          </li>
-          <li class="step reveal">
-            <span class="step__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
-            </span>
-            <span class="step__num">4</span>
-            <h3>Improve</h3>
-            <p>Failures feed the next validated policy.</p>
-          </li>
-        </ol>
-
-        <div class="twin reveal">
-          <figure class="twin__item">
-            <span class="tag">Real</span>
-            <img src="assets/so101-benchtop.jpg" alt="SO-101 tabletop robot arm with a wrist camera next to a ChArUco calibration board and cube objects" width="1600" height="900" loading="lazy">
-            <figcaption>Benchtop cell with calibration board</figcaption>
+        <div class="how">
+          <figure class="loop reveal">
+            <svg viewBox="0 0 520 400" role="img" aria-labelledby="loop-title">
+              <title id="loop-title">A continuous loop: Scan, Simulate, Deploy, Improve, then back to Scan</title>
+              <defs>
+                <marker id="loop-arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M1 1 9 5 1 9" fill="none" stroke="#5CA2FF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                </marker>
+                <radialGradient id="loop-glow" cx="50%" cy="50%" r="50%">
+                  <stop offset="0" stop-color="#1A78FA" stop-opacity=".28"/>
+                  <stop offset="1" stop-color="#1A78FA" stop-opacity="0"/>
+                </radialGradient>
+              </defs>
+              <circle cx="260" cy="200" r="96" fill="url(#loop-glow)"/>
+              <circle class="loop__ring" cx="260" cy="200" r="120"/>
+              <path class="loop__flow" d="M297.1 85.9 A120 120 0 0 1 374.1 162.9" marker-end="url(#loop-arrow)"/>
+              <path class="loop__flow" d="M374.1 237.1 A120 120 0 0 1 297.1 314.1" marker-end="url(#loop-arrow)"/>
+              <path class="loop__flow" d="M222.9 314.1 A120 120 0 0 1 145.9 237.1" marker-end="url(#loop-arrow)"/>
+              <path class="loop__flow" d="M145.9 162.9 A120 120 0 0 1 222.9 85.9" marker-end="url(#loop-arrow)"/>
+              <g class="loop__orbit"><circle cx="260" cy="80" r="5"/></g>
+              <g class="loop__node loop__node--1">
+                <circle class="loop__halo" cx="260" cy="80" r="30"/>
+                <circle class="loop__disc" cx="260" cy="80" r="30"/>
+                <g transform="translate(246 66) scale(1.1667)" class="loop__icon"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3.5"/></g>
+              </g>
+              <text class="loop__label" x="260" y="36" text-anchor="middle">Scan</text>
+              <g class="loop__node loop__node--2">
+                <circle class="loop__halo" cx="380" cy="200" r="30"/>
+                <circle class="loop__disc" cx="380" cy="200" r="30"/>
+                <g transform="translate(366 186) scale(1.1667)" class="loop__icon"><path d="M12 2 3 7l9 5 9-5-9-5z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/></g>
+              </g>
+              <text class="loop__label" x="424" y="206" text-anchor="start">Simulate</text>
+              <g class="loop__node loop__node--3">
+                <circle class="loop__halo" cx="260" cy="320" r="30"/>
+                <circle class="loop__disc" cx="260" cy="320" r="30"/>
+                <g transform="translate(246 306) scale(1.1667)" class="loop__icon"><path d="M20 6 9 17l-5-5"/></g>
+              </g>
+              <text class="loop__label" x="260" y="378" text-anchor="middle">Deploy</text>
+              <g class="loop__node loop__node--4">
+                <circle class="loop__halo" cx="140" cy="200" r="30"/>
+                <circle class="loop__disc" cx="140" cy="200" r="30"/>
+                <g transform="translate(126 186) scale(1.1667)" class="loop__icon"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></g>
+              </g>
+              <text class="loop__label" x="96" y="206" text-anchor="end">Improve</text>
+              <text class="loop__center" x="260" y="198" text-anchor="middle">Real2Sim2Real</text>
+              <text class="loop__sub" x="260" y="222" text-anchor="middle">continuous loop</text>
+            </svg>
           </figure>
-          <div class="twin__arrow" aria-hidden="true">→</div>
-          <figure class="twin__item">
-            <span class="tag tag--accent">Sim</span>
-            <img src="assets/digital-twin-sim.jpg" alt="Digital-twin simulation reconstructing the same table, arm, calibration board and cubes" width="1300" height="810" loading="lazy">
-            <figcaption>Its digital twin, reconstructed in simulation</figcaption>
-          </figure>
+          <ol class="steps">
+            <li class="step reveal">
+              <span class="step__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3.5"/></svg>
+              </span>
+              <span class="step__num">1</span>
+              <h3>Scan</h3>
+              <p>Capture the workcell and calibrate the cameras.</p>
+            </li>
+            <li class="step reveal">
+              <span class="step__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 7l9 5 9-5-9-5z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/></svg>
+              </span>
+              <span class="step__num">2</span>
+              <h3>Simulate</h3>
+              <p>Planning and reinforcement learning in a digital twin.</p>
+            </li>
+            <li class="step reveal">
+              <span class="step__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+              </span>
+              <span class="step__num">3</span>
+              <h3>Deploy</h3>
+              <p>Validate the policy at the real cell.</p>
+            </li>
+            <li class="step reveal">
+              <span class="step__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+              </span>
+              <span class="step__num">4</span>
+              <h3>Improve</h3>
+              <p>Failures feed the next validated policy.</p>
+            </li>
+          </ol>
         </div>
+
+        <figure class="compare reveal">
+          <div class="compare__stage">
+            <img class="compare__img" src="assets/compare-real.jpg" alt="Real: SO-101 tabletop robot arm with a wrist camera next to a ChArUco calibration board and cube objects" width="1280" height="800" loading="lazy">
+            <img class="compare__img compare__img--sim" src="assets/compare-sim.jpg" alt="Sim: the digital twin reconstructing the same table, arm, calibration board and cubes in simulation" width="1280" height="800" loading="lazy">
+            <span class="tag compare__tag compare__tag--real">Real</span>
+            <span class="tag tag--accent compare__tag compare__tag--sim">Sim</span>
+            <input class="compare__range" type="range" min="0" max="100" value="50" step="1" aria-label="Compare the real benchtop cell with its simulated digital twin" aria-valuetext="50% real, 50% simulation">
+            <div class="compare__seam" aria-hidden="true">
+              <span class="compare__knob">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6-6 6 6 6M15 6l6 6-6 6"/></svg>
+              </span>
+            </div>
+          </div>
+          <figcaption>Benchtop cell with calibration board (left) and its digital twin, reconstructed in simulation (right). Drag to compare.</figcaption>
+        </figure>
 
         <p class="punchline reveal">The next task should get cheaper.</p>
       </div>
@@ -264,21 +341,83 @@
     </section>
 
     <!-- TEAM -->
-    <section class="section" id="team">
+    <section class="section" id="team" aria-labelledby="team-title">
       <div class="container">
-        <div class="team reveal">
-          <figure class="team__media">
+        <div class="section__head reveal">
+          <p class="eyebrow">Team</p>
+          <h2 id="team-title">Built by robotics people</h2>
+          <p class="lead team__tagline">Robotics depth. Industrial and enterprise experience.</p>
+        </div>
+        <div class="team">
+          <figure class="team__media reveal">
             <img src="assets/team-teaching-ur5.jpg" alt="Three RuRobotics team members teaching a UR5 cobot using the teach pendant" width="1200" height="1600" loading="lazy">
           </figure>
-          <div class="team__copy">
-            <p class="eyebrow">Team</p>
-            <h2>Built by robotics people</h2>
-            <div class="person">
-              <h3>Nawar Sgier</h3>
-              <p class="person__role">Founder · Robotics &amp; AI</p>
-              <p>Technion CS + Mathematics; reinforcement learning and 3D vision.</p>
+          <div class="team__groups">
+            <div class="team__group reveal">
+              <h3 class="team__label">Core team</h3>
+              <ul class="people people--core">
+              <li class="person">
+                <span class="person__mono" aria-hidden="true">NS</span>
+                <div class="person__body">
+                  <h4 class="person__name"><a class="person__link" href="https://www.linkedin.com/in/nawar-sgier-24269519b/" target="_blank" rel="noopener">Nawar Sgier<svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9.75h4v11H3v-11zm6.5 0h3.8v1.5h.06c.53-1 1.83-2.06 3.77-2.06 4.03 0 4.77 2.65 4.77 6.1v5.46h-4v-4.84c0-1.16-.02-2.64-1.61-2.64-1.61 0-1.86 1.26-1.86 2.56v4.92h-4v-11z"/></svg><span class="visually-hidden"> on LinkedIn (opens in a new tab)</span></a></h4>
+                  <p class="person__role">Founder · Robotics &amp; AI</p>
+                  <ul class="person__creds">
+                    <li>Technion CS + Mathematics</li>
+                    <li>CGGC research · RL + 3D vision</li>
+                  </ul>
+                </div>
+              </li>
+              <li class="person">
+                <span class="person__mono" aria-hidden="true">M</span>
+                <div class="person__body">
+                  <h4 class="person__name">Mr. Masarwy</h4>
+                  <p class="person__role">Robotics &amp; Algorithms</p>
+                  <ul class="person__creds">
+                    <li>Technion M.Sc.</li>
+                    <li>Autonomous robotics · multi-agent RL</li>
+                  </ul>
+                </div>
+              </li>
+              <li class="person">
+                <span class="person__mono" aria-hidden="true">MM</span>
+                <div class="person__body">
+                  <h4 class="person__name">Mutaz Manaa</h4>
+                  <p class="person__role">Motion Planning &amp; Edge Cases</p>
+                  <ul class="person__creds">
+                    <li>Mobileye algorithms team manager</li>
+                    <li>Geometry · calibration · planning</li>
+                  </ul>
+                </div>
+              </li>
+              </ul>
             </div>
-            <p class="muted">A team of robotics, algorithms and industrial operations engineers.</p>
+            <div class="team__group reveal">
+              <h3 class="team__label">Advisors</h3>
+              <ul class="people people--advisors">
+              <li class="person">
+                <span class="person__mono" aria-hidden="true">S</span>
+                <div class="person__body">
+                  <h4 class="person__name">Mr. Sobhi</h4>
+                  <p class="person__role">Finance &amp; Operations Advisor</p>
+                  <ul class="person__creds">
+                    <li>Moona campus leadership</li>
+                    <li>Financial controls · partnerships</li>
+                  </ul>
+                </div>
+              </li>
+              <li class="person">
+                <span class="person__mono" aria-hidden="true">YH</span>
+                <div class="person__body">
+                  <h4 class="person__name">Yoram Horowitz</h4>
+                  <p class="person__role">Management Consultant</p>
+                  <ul class="person__creds">
+                    <li>Former VP, SAP</li>
+                    <li>Management and enterprise guidance</li>
+                  </ul>
+                </div>
+              </li>
+              </ul>
+            </div>
           </div>
         </div>
       </div>
@@ -290,11 +429,15 @@
         <div class="contact reveal">
           <p class="eyebrow">Contact</p>
           <h2>Let’s make the next task cheaper.</h2>
-          <p class="lead">Follow our progress or reach out on LinkedIn.</p>
+          <p class="lead">Follow our progress or reach out on LinkedIn and X.</p>
           <div class="btn-row btn-row--center">
-            <a class="btn btn--primary" data-linkedin href="#contact" target="_blank" rel="noopener">
+            <a class="btn btn--primary" data-linkedin href="https://www.linkedin.com/in/nawar-sgier-24269519b/" target="_blank" rel="noopener">
               <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9.75h4v11H3v-11zm6.5 0h3.8v1.5h.06c.53-1 1.83-2.06 3.77-2.06 4.03 0 4.77 2.65 4.77 6.1v5.46h-4v-4.84c0-1.16-.02-2.64-1.61-2.64-1.61 0-1.86 1.26-1.86 2.56v4.92h-4v-11z"/></svg>
               LinkedIn
+            </a>
+            <a class="btn btn--ghost btn--icon" href="https://x.com/RuRoboticsac" target="_blank" rel="noopener" aria-label="RuRobotics on X">
+              <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+              <span aria-hidden="true">X</span>
             </a>
             <a class="btn btn--ghost" href="https://github.com/nawar21/RuRobotics" target="_blank" rel="noopener">
               <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.42-2.7 5.39-5.26 5.68.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z"/></svg>
@@ -312,14 +455,18 @@
         <img src="assets/logo-mark.png" alt="" width="56" height="32">
         <img class="nav__wordmark" src="assets/logo-wordmark.png" alt="RuRobotics" width="125" height="18">
       </a>
+      <ul class="footer__social" aria-label="RuRobotics elsewhere">
+        <li><a href="https://www.linkedin.com/in/nawar-sgier-24269519b/" target="_blank" rel="noopener" aria-label="Nawar Sgier on LinkedIn"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9.75h4v11H3v-11zm6.5 0h3.8v1.5h.06c.53-1 1.83-2.06 3.77-2.06 4.03 0 4.77 2.65 4.77 6.1v5.46h-4v-4.84c0-1.16-.02-2.64-1.61-2.64-1.61 0-1.86 1.26-1.86 2.56v4.92h-4v-11z"/></svg></a></li>
+        <li><a href="https://x.com/RuRoboticsac" target="_blank" rel="noopener" aria-label="RuRobotics on X"><svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg></a></li>
+        <li><a href="https://github.com/nawar21/RuRobotics" target="_blank" rel="noopener" aria-label="RuRobotics on GitHub"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.42-2.7 5.39-5.26 5.68.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z"/></svg></a></li>
+      </ul>
       <p>© 2026 RuRobotics</p>
     </div>
   </footer>
 
-  <!-- TODO: replace with LinkedIn profile URL -->
   <script>
-    // Single source of truth for the LinkedIn link used by every [data-linkedin] button.
-    const LINKEDIN_URL = "https://www.linkedin.com/feed/";
+    // LinkedIn link for every [data-linkedin] button (hrefs are also set in the markup so they work without JS).
+    const LINKEDIN_URL = "https://www.linkedin.com/in/nawar-sgier-24269519b/";
     document.querySelectorAll('[data-linkedin]').forEach(a => { a.href = LINKEDIN_URL; });
 
     // Subtle fade-in on scroll (skipped when the user prefers reduced motion).
@@ -337,6 +484,31 @@
       }, { rootMargin: '0px 0px -8% 0px', threshold: 0.08 });
       els.forEach(el => io.observe(el));
     })();
+
+    // Real / Sim comparison slider: drag (mouse or touch) or use the keyboard on the range input.
+    document.querySelectorAll('.compare').forEach(cmp => {
+      const stage = cmp.querySelector('.compare__stage');
+      const range = cmp.querySelector('.compare__range');
+      const set = v => {
+        v = Math.round(Math.max(0, Math.min(100, v)));
+        cmp.style.setProperty('--pos', v + '%');
+        range.value = v;
+        range.setAttribute('aria-valuetext', v + '% real, ' + (100 - v) + '% simulation');
+      };
+      range.addEventListener('input', () => set(+range.value));
+      let dragging = false;
+      const fromPointer = e => {
+        const r = stage.getBoundingClientRect();
+        set((e.clientX - r.left) / r.width * 100);
+      };
+      stage.addEventListener('pointerdown', e => {
+        dragging = true;
+        stage.setPointerCapture(e.pointerId);
+        fromPointer(e);
+      });
+      stage.addEventListener('pointermove', e => { if (dragging) fromPointer(e); });
+      ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(t => stage.addEventListener(t, () => { dragging = false; }));
+    });
   </script>
 </body>
 </html>
