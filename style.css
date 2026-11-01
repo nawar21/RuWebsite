@@ -509,3 +509,44 @@ p { margin: 0; }
 @media (prefers-reduced-motion: reduce) {
   .js .reveal { opacity: 1; transform: none; transition: none; }
 }
+
+/* ---------- New York announcement ---------- */
+.announce {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  padding: 9px var(--gutter);
+  background: linear-gradient(90deg, rgba(26,120,250,0.18), rgba(26,120,250,0.32), rgba(26,120,250,0.18));
+  border-bottom: 1px solid rgba(92,162,255,0.28);
+  color: var(--text); text-decoration: none; font-size: 0.88rem; font-weight: 500; text-align: center;
+}
+.announce:hover { background: rgba(26,120,250,0.36); }
+.announce__tag {
+  flex: none; padding: 2px 8px; border-radius: 999px;
+  background: var(--blue-strong); color: #fff;
+  font-size: 0.72rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+}
+.announce__arrow { flex: none; color: var(--blue-soft); transition: transform .2s; }
+.announce:hover .announce__arrow { transform: translateX(3px); }
+
+.nyc {
+  display: grid; gap: 32px; align-items: center;
+  padding: 40px 24px; border-radius: 24px;
+  border: 1px solid rgba(92,162,255,0.22);
+  background:
+    radial-gradient(70% 110% at 0% 100%, rgba(26,120,250,0.20), transparent 60%),
+    radial-gradient(60% 90% at 100% 0%, rgba(92,162,255,0.12), transparent 60%),
+    var(--surface);
+}
+.nyc h2 { margin-bottom: 14px; }
+.nyc h2 .accent { display: block; }
+.nyc .lead { max-width: 52ch; }
+.nyc .btn-row { margin-top: 28px; }
+.nyc__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.nyc__list li {
+  display: grid; gap: 4px; padding: 14px 18px; border-radius: 14px;
+  background: rgba(7,9,13,0.6); border: 1px solid var(--line-strong);
+}
+.nyc__k { font-size: 0.72rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--blue-soft); }
+.nyc__list strong { color: var(--text); font-weight: 600; font-size: 1rem; }
+@media (min-width: 900px) { .nyc { grid-template-columns: 1.25fr 1fr; padding: 56px; } }
+
+.contact__note { color: var(--blue-soft); font-size: 0.92rem; font-weight: 500; margin: -4px 0 12px; }
