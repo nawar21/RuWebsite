@@ -1,0 +1,21 @@
+---
+// Secondary pages (privacy, terms, accessibility, 404): same head, header and footer as the
+// home page, with nav links that lead back to the home page sections.
+import Base from './Base.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+
+interface Props {
+  title: string;
+  description: string;
+  noindex?: boolean;
+}
+const { title, description, noindex } = Astro.props;
+---
+<Base title={title} description={description} noindex={noindex}>
+  <Header home={false} />
+  <main id="main">
+    <slot />
+  </main>
+  <Footer home={false} />
+</Base>

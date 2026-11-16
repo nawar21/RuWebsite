@@ -1,0 +1,96 @@
+---
+import Page from '../layouts/Page.astro';
+import LegalPage from '../components/LegalPage.astro';
+import { SITE } from '../data/site';
+import { asset } from '../lib/url';
+
+const mail = `mailto:${SITE.email}`;
+const toc = [
+  { id: 'who', label: 'Who we are' },
+  { id: 'summary', label: 'The short version' },
+  { id: 'collect', label: 'What we collect and why' },
+  { id: 'cookies', label: 'Cookies and tracking' },
+  { id: 'share', label: 'Who we share data with' },
+  { id: 'retain', label: 'How long we keep it' },
+  { id: 'security', label: 'How we protect it' },
+  { id: 'rights', label: 'Your rights' },
+  { id: 'children', label: 'Children' },
+  { id: 'changes', label: 'Changes' },
+  { id: 'contact', label: 'Contact' },
+];
+---
+<Page
+  title="Privacy Policy — RuRobotics"
+  description="How the RuRobotics website handles personal data: no cookies, no analytics, no trackers, what our hosting providers process, your rights and how to contact us."
+>
+  <LegalPage eyebrow="Legal" title="Privacy Policy" meta="Effective 16 November 2026 · Last reviewed 16 November 2026" toc={toc}>
+    <h2 id="who">Who we are</h2>
+    <p>This website is operated by <strong>RuRobotics</strong>, a robotics company based in {SITE.location}. We build the physical AI layer that runs on industrial robot arms factories already own. For the purposes of privacy law, RuRobotics is the controller of the personal data described on this page.</p>
+    <p>You can reach us at <a href={mail}>{SITE.email}</a>.</p>
+
+    <h2 id="summary">The short version</h2>
+    <div class="callout">
+      <p>This site sets <strong>no cookies</strong>, runs <strong>no analytics</strong> and loads <strong>nothing from advertising or tracking networks</strong>. Fonts, images, the video and the 3D model all load from our own domain. The only personal data involved is the request data our hosting providers process to deliver the site, and whatever you choose to send us.</p>
+    </div>
+
+    <h2 id="collect">What we collect and why</h2>
+    <h3>1. Request data, processed by our hosting providers</h3>
+    <p>The site at rurobotics.online is served by <strong>Cloudflare</strong>, and a copy at nawar21.github.io is served by <strong>GitHub Pages</strong>. To deliver each page and protect the site from abuse, they process the technical details of your request: your IP address, the date and time, the page or file requested, the page that referred you (if any), and your browser's user-agent string.</p>
+    <p><strong>Why:</strong> to deliver the site, keep it available, and detect and block abuse such as attack traffic. The legal basis is our legitimate interest in operating a secure website. We do not run our own web server and do not keep access logs ourselves.</p>
+    <h3>2. Email and other messages you send us</h3>
+    <p>If you email us, or contact us through LinkedIn or X, we receive what you send: typically your name, your email address or profile, your company, and the content of your message.</p>
+    <p><strong>Why:</strong> to answer you and, if you ask us to, to prepare a pilot proposal or agreement. The legal basis is taking steps at your request before entering into a contract, and our legitimate interest in responding to business enquiries.</p>
+    <h3>3. Nothing else</h3>
+    <p>There are no accounts, no sign-ups, no forms, no payments on this site, and no embedded third-party widgets. We do not buy data about visitors from anyone.</p>
+
+    <h2 id="cookies">Cookies and tracking</h2>
+    <p>We do not set cookies, use local storage for tracking, or run analytics scripts. That is why you do not see a cookie banner: there is nothing to consent to. If we ever add a tool that needs consent, we will ask before it loads and update this page.</p>
+    <p>Cloudflare may set a strictly necessary security cookie if it has to check whether suspicious traffic comes from a person rather than a bot. It is not used for tracking or advertising.</p>
+    <p>Links to LinkedIn, X and GitHub take you to those services. They have their own privacy policies and may set cookies once you are on their sites. We do not embed their content or tracking pixels here.</p>
+
+    <h2 id="share">Who we share data with</h2>
+    <ul>
+      <li><strong>Hosting providers.</strong> Cloudflare, Inc. and GitHub, Inc. host the site and process request data under their own terms. See the <a href="https://www.cloudflare.com/privacypolicy/" rel="noopener">Cloudflare privacy policy</a> and the <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement" rel="noopener">GitHub privacy statement</a>.</li>
+      <li><strong>Email provider.</strong> Messages you email us are stored by our email provider, Google.</li>
+      <li><strong>Authorities.</strong> We will disclose data if the law requires it, for example in response to a valid court order.</li>
+    </ul>
+    <p>We do not sell personal data and we do not share it with advertisers.</p>
+
+    <h2 id="retain">How long we keep it</h2>
+    <table>
+      <thead><tr><th scope="col">Data</th><th scope="col">Retention</th></tr></thead>
+      <tbody>
+        <tr><td>Request data</td><td>We keep none. Cloudflare and GitHub retain it only as long as their privacy policies allow.</td></tr>
+        <tr><td>Email and messages</td><td>Kept while we are in contact with you and, if you become a customer, for the duration of the relationship plus the period required by Israeli tax and commercial law. Enquiries that do not lead anywhere are deleted within 24 months.</td></tr>
+      </tbody>
+    </table>
+
+    <h2 id="security">How we protect it</h2>
+    <ul>
+      <li>All traffic to this site is encrypted with HTTPS (TLS), and browsers are told to use HTTPS only.</li>
+      <li>Every page carries a Content Security Policy that only allows scripts, styles, fonts and media from this site.</li>
+      <li>We collect as little as possible, so there is little to lose.</li>
+      <li>Security researchers can report issues through our <a href={asset('.well-known/security.txt')}>security.txt</a>.</li>
+    </ul>
+
+    <h2 id="rights">Your rights</h2>
+    <p>Under Israel's Protection of Privacy Law, 5741-1981, and, if you are in the EU, EEA or UK, under the GDPR and UK GDPR, you can ask us to:</p>
+    <ul>
+      <li>tell you what personal data we hold about you and give you a copy;</li>
+      <li>correct data that is inaccurate;</li>
+      <li>delete your data;</li>
+      <li>stop processing it, or object to processing based on legitimate interest;</li>
+      <li>give you your data in a portable format where that right applies.</li>
+    </ul>
+    <p>Email <a href={mail}>{SITE.email}</a> and we will respond within 30 days. We may ask you to confirm your identity first. You also have the right to complain to a supervisory authority: in Israel, the Privacy Protection Authority; in the EU or UK, your national data-protection authority.</p>
+
+    <h2 id="children">Children</h2>
+    <p>This site is aimed at businesses. We do not knowingly collect data from anyone under 18. If you believe a child has sent us personal data, contact us and we will delete it.</p>
+
+    <h2 id="changes">Changes to this policy</h2>
+    <p>If we change how this site handles personal data, we will update this page and the date at the top. Material changes will be announced on the home page for at least 30 days.</p>
+
+    <h2 id="contact">Contact</h2>
+    <p>RuRobotics, {SITE.location}<br /><a href={mail}>{SITE.email}</a></p>
+  </LegalPage>
+</Page>

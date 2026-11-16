@@ -1,6 +1,17 @@
 /* RuRobotics — single-page site
    Brand: black / white / electric blue (sampled from the logo, ~#1A78FA) */
 
+/* Inter is self-hosted (SIL Open Font License) so no visitor data goes to a font CDN.
+   Apple devices use San Francisco first and never download it. */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url("../assets/fonts/inter-latin-400-600.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 :root {
   --bg: #07090D;
   --bg-2: #0C1017;
@@ -735,6 +746,62 @@ h3 { font-size: 1.3rem; letter-spacing: -0.02em; }
 .footer p { color: var(--muted); font-size: 0.75rem; }
 .footer__social a { color: var(--muted); border-color: rgba(0,0,0,0.12); }
 .footer__social a:hover { color: var(--text); border-color: rgba(0,0,0,0.3); background: #fff; }
+
+/* Hero HUD positions (classes instead of inline styles, so the CSP needs no 'unsafe-inline' for attributes) */
+.hud__dot--1 { left: 64.2%; top: 17.2%; }
+.hud__dot--2 { left: 72.2%; top: 17.9%; animation-delay: .8s; }
+.hud__dot--3 { left: 12.5%; top: 57.3%; animation-delay: 1.6s; }
+.hud__label--gripper { left: 45%; top: 22.67%; }
+.hud__label--camera  { left: 80%; top: 26.1%; }
+.hud__label--plan    { left: 27.5%; top: 48%; }
+
+/* Contact: reply time and privacy note */
+.contact__meta { margin: 18px auto 0; max-width: 52ch; color: var(--muted); font-size: 0.88rem; }
+
+/* Footer: legal links and the no-tracking note */
+.footer__legal {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 24px;
+  margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line);
+}
+.footer__links { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 20px; }
+.footer__links a { color: var(--muted); font-size: 0.75rem; text-decoration: none; }
+.footer__links a:hover { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+.footer .footer__note { font-size: 0.75rem; margin: 0; }
+
+/* Secondary pages: privacy, terms, accessibility, 404 */
+.page { padding: 56px 0 96px; }
+@media (min-width: 900px) { .page { padding: 88px 0 140px; } }
+.page__head { max-width: 760px; margin-bottom: 40px; }
+.page__head h1 { font-size: clamp(2.2rem, 5vw, 3.4rem); font-weight: 600; letter-spacing: -0.03em; margin-bottom: 14px; }
+.page__meta { color: var(--muted); font-size: 0.92rem; margin: 0; }
+.page__grid { display: grid; gap: 40px; align-items: start; }
+@media (min-width: 1000px) { .page__grid { grid-template-columns: 220px minmax(0, 1fr); gap: 64px; } }
+.toc { position: sticky; top: 76px; padding: 20px 22px; border-radius: var(--radius); background: var(--card); }
+@media (max-width: 999px) { .toc { position: static; } }
+.toc h2 { font-family: var(--font-body); font-size: 0.75rem; font-weight: 600; letter-spacing: 0; color: var(--muted); margin-bottom: 10px; }
+.toc ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.toc a { display: block; padding: 3px 0; color: var(--text); text-decoration: none; font-size: 0.88rem; }
+.toc a:hover { color: var(--blue-soft); }
+.prose { max-width: 70ch; }
+.prose h2 { font-size: 1.5rem; font-weight: 600; letter-spacing: -0.02em; margin: 48px 0 12px; scroll-margin-top: 76px; }
+.prose h2:first-child { margin-top: 0; }
+.prose h3 { font-size: 1.1rem; font-weight: 600; margin: 28px 0 8px; }
+.prose p, .prose li, .prose td { color: #424245; }
+.prose p { margin: 0; }
+.prose p + p, .prose h3 + p { margin-top: 10px; }
+.prose ul { margin: 12px 0 0; padding-left: 22px; }
+.prose li + li { margin-top: 6px; }
+.prose strong { color: var(--text); font-weight: 600; }
+.prose a { text-underline-offset: 3px; }
+.prose table { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 0.95rem; }
+.prose th, .prose td { text-align: left; vertical-align: top; padding: 12px 12px 12px 0; border-bottom: 1px solid var(--line); }
+.prose th { color: var(--text); font-weight: 600; }
+.callout { margin-top: 18px; padding: 18px 22px; border-radius: var(--radius); background: rgba(0,113,227,0.06); }
+.prose .callout p { color: var(--text); }
+.notfound { text-align: center; padding: 120px 0 160px; }
+.notfound h1 { font-size: clamp(2.4rem, 6vw, 4rem); font-weight: 600; letter-spacing: -0.03em; margin-bottom: 14px; }
+.notfound .lead { margin: 0 auto; }
+.notfound .btn-row { justify-content: center; margin-top: 28px; }
 
 /* Calmer reveal, Apple-like easing */
 .js .reveal { transform: translateY(30px); transition: opacity 1s cubic-bezier(.25,.1,.25,1), transform 1s cubic-bezier(.25,.1,.25,1); }

@@ -23,6 +23,17 @@ npm run lhci       # Lighthouse audit (build with BASE_PATH=/ first)
 | Scroll motion (Lenis + GSAP) | `src/scripts/motion.ts` |
 | Photos (auto-resized to WebP at build) | `src/assets/photos/` |
 | Logos, favicons, video, 3D model | `public/` |
+| Privacy, terms, accessibility, 404 | `src/pages/*.astro` (shell: `src/layouts/Page.astro`, `src/components/LegalPage.astro`) |
+| robots.txt, sitemap.xml, security.txt | `src/pages/robots.txt.ts`, `src/pages/sitemap.xml.ts`, `src/pages/.well-known/security.txt.ts` |
+| Footer legal links | `LEGAL` in `src/data/site.ts` |
+
+## Privacy and security
+
+- **No third-party requests.** Inter is self-hosted (`src/assets/fonts/`, SIL OFL); Apple devices use San Francisco and never download it. Keep it that way, because the privacy policy promises it.
+- **Content Security Policy.** `security.csp` in `astro.config.mjs` writes a CSP `<meta>` into every page. Astro hashes its own scripts; anything else must come from this site. Don't add inline `style="..."` attributes or third-party scripts. If you upgrade `@google/model-viewer` and the console reports a blocked inline style, put the hash it prints into `styleDirective.hashes`.
+- **Headers on Cloudflare.** `public/_headers` adds HSTS, `frame-ancestors 'none'`, a Permissions-Policy and long caching for `/_astro/*`.
+- **security.txt** expires on 16 November 2027. Renew the `Expires` line in `src/pages/.well-known/security.txt.ts` before then.
+- If you change what the site collects or who hosts it, update `src/pages/privacy.astro` and its dates.
 
 ## Tools
 

@@ -12,7 +12,18 @@ export const SITE = {
   x: 'https://x.com/RuRoboticsac',
   xHandle: '@RuRoboticsac',
   github: 'https://github.com/nawar21/RuRobotics',
+  city: 'Haifa',
+  countryCode: 'IL',
+  location: 'Haifa, Israel',
 };
+
+// Footer links. Paths are relative to the site root; wrap them in asset().
+export const LEGAL = [
+  { href: 'privacy/', label: 'Privacy' },
+  { href: 'terms/', label: 'Terms' },
+  { href: 'accessibility/', label: 'Accessibility' },
+  { href: '.well-known/security.txt', label: 'Report a security issue' },
+];
 
 export const NAV = [
   { href: '#nyc', label: 'New York' },
