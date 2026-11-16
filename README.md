@@ -31,7 +31,8 @@ npm run lhci       # Lighthouse audit (build with BASE_PATH=/ first)
 | [Astro](https://github.com/withastro/astro) | Components, a single data file for content, and build-time image optimization (photos ship as resized WebP). |
 | [GSAP + ScrollTrigger](https://github.com/greensock/GSAP) | Staggered reveals, hero push-in, the "How it works" loop that lights up the step being read, active nav link. |
 | [Lenis](https://github.com/darkroomengineering/lenis) | Smooth scrolling and offset-aware anchor links, driven by the GSAP ticker. |
-| [three.js](https://github.com/mrdoob/three.js) | The Digital twin: a simulated palletizing cell where a UR5e meets ten scripted edge cases (`src/scripts/twin/`). Loaded only when the section nears the screen. |
+| [three.js](https://github.com/mrdoob/three.js) | Renders the Digital twin: a palletizing cell where a UR5e meets ten scripted edge cases (`src/scripts/twin/`). Loaded only when the section nears the screen. |
+| [MuJoCo](https://github.com/google-deepmind/mujoco) (`@mujoco/mujoco`, WebAssembly) | The twin's physics at 500 Hz in a Web Worker (`physics.worker.ts`): the UR5e's servos and inertias from Menagerie, a weld-based vacuum grip, cartons with mass and friction, a friction-limited belt drive. `mjcf.ts` builds the model, `sim.ts` is the cell controller. |
 | [Lighthouse CI](https://github.com/GoogleChrome/lighthouse-ci) | `.github/workflows/lighthouse.yml` audits every PR; accessibility or SEO below 95 fails the check. |
 
 All motion is skipped for visitors who prefer reduced motion.

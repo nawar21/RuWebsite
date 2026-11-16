@@ -13,4 +13,6 @@ export default defineConfig({
   base: process.env.BASE_PATH ?? (onCloudflare ? '/' : '/RuWebsite'),
   trailingSlash: 'ignore',
   build: { inlineStylesheets: 'auto' },
+  // The digital twin's physics worker imports MuJoCo's ES-module WebAssembly loader, so workers build as ES modules.
+  vite: { worker: { format: 'es' } },
 });

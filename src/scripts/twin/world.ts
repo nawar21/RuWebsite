@@ -10,18 +10,11 @@ import {
 } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
-import { FLANGE_Y, GLB_HOME, JOINT_NODES, TOOL_LEN, jointQuat } from './kinematics';
+import { FLANGE_Y, GLB_HOME, JOINT_NODES, TOOL_LEN, jointQuat } from './kinematics.ts';
 
 // ------------------------------------------------------------------------------------------- layout
-export const FLOOR_Y = -0.82;
-export const BOX = { L: 0.15, W: 0.11, H: 0.10 };
-export const BELT = { top: -0.04, z: 0.40, x0: -1.45, x1: -0.06, width: 0.30, stopX: -0.10, speed: 0.30, spawnX: -1.36 };
-export const PALLET = { x: 0.47, z: 0.08, top: -0.28 };
-export const SLOT_DX = 0.16;
-export const SLOT_DZ = 0.12;
-export const REJECT = { x: -0.56, z: -0.06, floor: -0.47 };
-export const TOTE_B = { x: 0.14, z: -0.46, floor: -0.47 };
-export const ZONES = { warn: 1.75, stop: 1.15 };
+import { BELT, BOX, FLOOR_Y, PALLET, REJECT, TOTE_B, ZONES } from './layout.ts';
+export { BELT, BOX, FLOOR_Y, PALLET, REJECT, TOTE_B, ZONES };
 export const HALL = '#dde1e6';                              // background + fog colour of the hall
 
 const ZERO = [0, 0, 0] as const;
@@ -273,14 +266,22 @@ function boxGeometry(damaged: boolean) {
   return damaged ? dentGeo! : boxGeo;
 }
 
+/** A carton whose origin is its centre (the physics body's frame). */
 export function makeBox(kind: BoxKind) {
-  const m = boxMaterials();
   const g = new Group();
-  const b = new Mesh(boxGeometry(!!kind.damaged), kind.damaged ? m.D : m[kind.sku]);
+  const b = new Mesh(boxGeometry(!!kind.damaged), boxMaterials()[kind.damaged ? 'D' : kind.sku]);
+  b.position.y = BOX.H / 2;                                 // the geometry's origin is its top face
   b.castShadow = true;
   b.receiveShadow = true;
   g.add(b);
   return g;
+}
+
+/** Re-dress a pooled carton for the SKU (or damage) the physics worker just spawned it as. */
+export function styleBox(g: Group, kind: BoxKind) {
+  const b = g.children[0] as Mesh;
+  b.geometry = boxGeometry(!!kind.damaged);
+  b.material = boxMaterials()[kind.damaged ? 'D' : kind.sku];
 }
 
 // ------------------------------------------------------------------------------------------- operator

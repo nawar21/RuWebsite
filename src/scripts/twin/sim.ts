@@ -1,32 +1,29 @@
-// The scripted production loop. One pallet per loop: 13 boxes come down the infeed, the UR5e palletizes them and
-// meets the ten edge cases in cases.ts on the way. The script is deterministic (no randomness, no physics engine):
-// generators advance on the robot clock, which the safety scanner slows or stops, and on the cell clock.
-import { Group, Material, Matrix4, Mesh, Object3D, Vector3 } from 'three';
-import { CASES } from './cases';
-import { GLB_HOME, fk, ik, nearest, solveFrom } from './kinematics';
-import { BELT, BOX, PALLET, REJECT, SLOT_DX, SLOT_DZ, TOTE_B, ZONES, FLOOR_Y, makeBox, type Cell, type Sku } from './world';
+// The cell controller, running against a MuJoCo model of the cell (mjcf.ts) inside a Web Worker.
+//
+// Physics: MuJoCo steps at 500 Hz. Cartons are free bodies; the belt drives them with a friction-limited force and
+// accumulates them in zones; the vacuum cup grips with a weld; the pallet is a kinematic body. Nothing teleports
+// once it is in play: a slipped carton falls, a released one settles on the stack, a dropped one lands in the bin.
+//
+// Control: the program (generators, 100 Hz) plans joint targets with the UR5e IK in kinematics.ts; each physics
+// step interpolates them and adds velocity feedforward for Menagerie's position servos. The robot clock is scaled
+// by the area scanner (30 %, then 0 %). The scenario is deterministic: fixed steps, no randomness.
+import { Matrix4, Quaternion, Vector3 } from 'three';
+import { CASES } from './cases.ts';
+import { GLB_HOME, fk, ik, nearest, solveFrom } from './kinematics.ts';
+import { BELT, BOX, FLOOR_Y, PALLET, POOL, REJECT, SLOT_DX, SLOT_DZ, TOTE_B, ZONES, park } from './layout.ts';
+import { S, type HudEvent, type Sku, type Stats, type Tone } from './protocol.ts';
 
-export type Tone = 'run' | 'hold' | 'stop' | 'edge' | 'ok' | 'info';
-export interface Stats { placed: number; rejected: number; sorted: number; onPallet: number; generation: number; edges: number }
-export interface Hud {
-  log(time: number, text: string, tone: Tone): void;
-  edge(time: number, n: number, detail: string): void;
-  resetEdges(): void;
-  status(label: string, tone: Tone): void;
-  stats(s: Stats): void;
-  tool(vacuum: number, payload: number, speed: number): void;
-}
+export { S, STATE_LEN } from './protocol.ts';
+export type { HudEvent, Sku, Stats, Tone } from './protocol.ts';
 
 type Proc = Generator<void, void, number>;
 interface Spec { sku: Sku; yaw?: number; damaged?: boolean; touching?: boolean; afterPick?: boolean; edge?: number }
-type BoxState = 'belt' | 'held' | 'falling' | 'placed' | 'binned' | 'hand';
-interface Box {
-  id: number; spec: Spec; obj: Group; state: BoxState;
-  s: number; z: number; yaw: number; gap: number; vy: number; landY: number; spin: number; onLand: BoxState;
-}
+type BoxState = 'parked' | 'belt' | 'held' | 'free' | 'hand' | 'placed' | 'binned';
+interface Box { i: number; id: number; spec: Spec; state: BoxState; exiting: boolean; gap: number }
 
 const DEG = Math.PI / 180;
-/** One pallet's worth of infeed, in arrival order. `edge` marks the box that triggers that case. */
+const DT = 0.002;            // physics step
+const CTRL_EVERY = 5;        // controller at 100 Hz
 const PLAN: Spec[] = [
   { sku: 'A' },
   { sku: 'A', yaw: 35 * DEG, edge: 1 },
@@ -44,19 +41,18 @@ const PLAN: Spec[] = [
 ];
 const SLOTS = 12;
 const READY = new Vector3(BELT.stopX - BOX.L / 2, 0.3, BELT.z);
-const SAFE_Y = 0.14;                          // carry height for transfers (tool lip, m)
+const SAFE_Y = 0.14;
 const PERSON_FROM = new Vector3(3.9, FLOOR_Y, -0.82);
+const PERSON_WAIT = new Vector3(2.0, FLOOR_Y, -0.72);
 const PERSON_AT = new Vector3(0.96, FLOOR_Y, -0.34);
 const PERSON_TO = new Vector3(4.4, FLOOR_Y, -0.5);
-const PERSON_WAIT = new Vector3(2.0, FLOOR_Y, -0.72);   // just outside the warning field
 
 const ease = (u: number) => u * u * u * (u * (u * 6 - 15) + 10);
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 const halfTurn = (a: number, ref: number) => a + Math.round((ref - a) / Math.PI) * Math.PI;
-/** Yaw about +Y of an object's x axis, read from its matrix (Euler angles flip past ±90°). */
-const yawOf = (o: Object3D) => { o.updateMatrix(); const e = o.matrix.elements; return Math.atan2(-e[2], e[0]); };
 const square = (a: number) => Math.round(a / Math.PI) * Math.PI;
 const reach = (yaw: number) => (BOX.L / 2) * Math.abs(Math.cos(yaw)) + (BOX.W / 2) * Math.abs(Math.sin(yaw));
+const yawOfQ = (q: Quaternion) => Math.atan2(-2 * (q.x * q.z - q.w * q.y), 1 - 2 * (q.y * q.y + q.z * q.z));
 
 /** Slot k (0..11): each layer fills the back row (nearest the robot) left to right, then the front row. */
 export function slotPose(k: number) {
@@ -65,38 +61,21 @@ export function slotPose(k: number) {
   return new Vector3(PALLET.x + ((i % 3) - 1) * SLOT_DX, PALLET.top + BOX.H * (layer + 1), PALLET.z + row * SLOT_DZ / 2);
 }
 
-/** Swap an object tree onto transparent clones of its materials so it can fade, and back. */
-class Fade {
-  private clones = new Map<Material, Material>();
-  private meshes: Mesh[] = [];
-  constructor(roots: Object3D[]) {
-    for (const r of roots) r.traverse((o) => {
-      const m = o as Mesh;
-      if (!m.isMesh) return;
-      m.userData.orig = m.material;
-      const swap = (mat: Material) => {
-        let c = this.clones.get(mat);
-        if (!c) { c = mat.clone(); c.transparent = true; this.clones.set(mat, c); }
-        return c;
-      };
-      m.material = Array.isArray(m.material) ? m.material.map(swap) : swap(m.material);
-      this.meshes.push(m);
-    });
-  }
-  set(opacity: number) { for (const c of this.clones.values()) { c.opacity = opacity; c.depthWrite = opacity > 0.98; } }
-  restore() {
-    for (const m of this.meshes) m.material = m.userData.orig;
-    for (const c of this.clones.values()) c.dispose();
-  }
-}
+/* eslint-disable @typescript-eslint/no-explicit-any */
+export interface MuJoCo { mj: any; model: any; data: any }
 
 export class Sim {
   time = 0;
   speed = 1;
+  personPlacing = false;
+  private mj: any;
+  private model: any;
+  private data: any;
+  private emit: (e: HudEvent) => void;
   private q = [...GLB_HOME];
+  private qPrev = [...GLB_HOME];
   private T = new Matrix4();
   private held: Box | null = null;
-  private rel = new Matrix4();
   private vac = 0;
   private vacTarget = 0;
   private boxes: Box[] = [];
@@ -105,7 +84,6 @@ export class Sim {
   private running = true;
   private jammed = false;
   private waiting = 0;
-  private slotTruth: (Box | null)[] = Array(SLOTS).fill(null);
   private slotBook: ('empty' | 'occupied')[] = Array(SLOTS).fill('empty');
   private stats: Stats = { placed: 0, rejected: 0, sorted: 0, onPallet: 0, generation: 1, edges: 0 };
   private seen = new Set<number>();
@@ -117,75 +95,282 @@ export class Sim {
   private puffT = -1;
   private toolTick = 0;
   private slow = 1;
-  /** True while the operator is reaching into the pallet: the moment the reduced-motion still shows. */
-  personPlacing = false;
-  /** True while the operator is in view, so the camera can pull back to fit them. */
-  get operatorInCell() { return this.cell.person.root.visible; }
+  private beltOffset = 0;
+  private stepCount = 0;
+  private acc = 0;
+  private fade = 1;
+  private pallet = new Vector3(PALLET.x, PALLET.top, PALLET.z);
+  private person = { visible: false, x: 0, z: 0, rot: 0, phase: 0, walk: 0, carry: 0, reach: 0 };
+  private carried: Box | null = null;
+  private readyQ: number[] = [...GLB_HOME];
+  // model indices
+  private boxBody: number[] = [];
+  private boxQ: number[] = [];
+  private boxV: number[] = [];
+  private toolBody: number;
 
-  constructor(private cell: Cell, private hud: Hud) {
-    for (const [i, s] of [[0, BELT.stopX], [1, -0.55], [2, -0.95]] as const) {
-      const b = this.spawn(PLAN[i]);
-      b.s = s - reach(b.yaw);
-      this.place(b);
+  constructor(m: MuJoCo, emit: (e: HudEvent) => void) {
+    this.mj = m.mj; this.model = m.model; this.data = m.data; this.emit = emit;
+    const id = (type: string, name: string) => this.mj.mj_name2id(this.model, this.mj.mjtObj[type].value, name);
+    this.toolBody = id('mjOBJ_BODY', 'tool');
+    for (let i = 0; i < POOL; i++) {
+      this.boxBody.push(id('mjOBJ_BODY', `box${i}`));
+      const j = id('mjOBJ_JOINT', `box${i}`);
+      this.boxQ.push(this.model.jnt_qposadr[j]);
+      this.boxV.push(this.model.jnt_dofadr[j]);
+    }
+    // start: arm at the ready pose, three cartons already on the belt
+    this.readyQ = solveFrom({ p: READY, yaw: 0 }, GLB_HOME).q;
+    this.q = [...this.readyQ];
+    this.qPrev = [...this.q];
+    const qpos = this.data.qpos, ctrl = this.data.ctrl;
+    for (let j = 0; j < 6; j++) { qpos[j] = this.q[j]; ctrl[j] = this.q[j]; }
+    for (const [k, s] of [[0, BELT.stopX], [1, -0.55], [2, -0.95]] as const) {
+      const b = this.spawn(PLAN[k]);
+      this.setPose(b, new Vector3(s - reach(b.spec.yaw ?? 0), BELT.top + BOX.H / 2 + 0.001, BELT.z), b.spec.yaw ?? 0);
     }
     this.spawnIdx = 3;
-    this.apply();
-    this.q = this.solve(READY, 0);
-    this.apply();
+    this.mj.mj_forward(this.model, this.data);
+    fk(this.q, this.T);
     this.robot = this.program();
     this.robot.next();
     this.status('RUNNING', 'run');
     this.publish();
   }
 
-  // ------------------------------------------------------------------------------------ tick
-  step(dt: number) {
-    this.time += dt;
+  // ------------------------------------------------------------------------------------ stepping
+  /** Advance real time `dt` (seconds), in fixed physics steps; at most 0.1 s per call. */
+  advance(dt: number) {
+    this.acc = Math.min(this.acc + dt, 0.1);
+    while (this.acc >= DT) { this.acc -= DT; this.physicsStep(); }
+  }
+
+  private physicsStep() {
+    if (this.stepCount % CTRL_EVERY === 0) this.control(DT * CTRL_EVERY);
+    const k = (this.stepCount % CTRL_EVERY) + 1;
+    const ctrl = this.data.ctrl;
+    for (let j = 0; j < 6; j++) {
+      const v = (this.q[j] - this.qPrev[j]) / (DT * CTRL_EVERY);
+      ctrl[j] = this.qPrev[j] + (this.q[j] - this.qPrev[j]) * (k / CTRL_EVERY) + 0.2 * v;   // kv/kp = 0.2 s
+    }
+    this.beltDrive();
+    this.carryOperatorBox();
+    this.mj.mj_step(this.model, this.data);
+    this.stepCount++;
+    this.time = this.data.time;
+  }
+
+  /** 100 Hz: scanner, conveyor logic, the robot program and the operator. */
+  private control(dt: number) {
+    this.qPrev = [...this.q];
     this.safety(dt);
-    this.belt(dt);
+    this.classify();
     this.spawner();
     this.line();
-    this.falling(dt);
     this.effects(dt);
-    this.cell.ambient(dt);
+    if (this.running) this.beltOffset += BELT.speed * dt;
     this.robot.next(dt * this.speed);
     this.side = this.side.filter((p) => !p.next(dt).done);
     this.vac += (this.vacTarget - this.vac) * Math.min(1, dt * 14);
     this.toolTick -= dt;
     if (this.toolTick <= 0) {
       this.toolTick = 0.12;
-      this.hud.tool(Math.round(this.vac), this.held ? 1.4 : 0, Math.round(this.speed * 100));
+      this.emit({ k: 'tool', vac: Math.round(this.vac), payload: this.held ? BOX.mass + 0.2 : 0, speed: Math.round(this.speed * 100) });
+    }
+  }
+
+  // ------------------------------------------------------------------------------------ physics access
+  private pos(b: Box) {
+    const x = this.data.xpos, o = this.boxBody[b.i] * 3;
+    return new Vector3(x[o], x[o + 2], -x[o + 1]);
+  }
+
+  private quat(b: Box) {
+    const x = this.data.xquat, o = this.boxBody[b.i] * 4;
+    return new Quaternion(x[o + 1], x[o + 3], -x[o + 2], x[o]);   // MuJoCo (w x y z), Z-up -> three, Y-up
+  }
+
+  private vel(b: Box) {
+    const v = this.data.qvel, o = this.boxV[b.i];
+    return new Vector3(v[o], v[o + 2], -v[o + 1]);
+  }
+
+  private yaw(b: Box) { return yawOfQ(this.quat(b)); }
+
+  /** Centre of the carton's top face. */
+  private top(b: Box) { return this.pos(b).add(new Vector3(0, BOX.H / 2, 0)); }
+
+  private setPose(b: Box, p: Vector3, yaw: number) {
+    const qp = this.data.qpos, qv = this.data.qvel, a = this.boxQ[b.i], v = this.boxV[b.i];
+    qp[a] = p.x; qp[a + 1] = -p.z; qp[a + 2] = p.y;
+    qp[a + 3] = Math.cos(yaw / 2); qp[a + 4] = 0; qp[a + 5] = 0; qp[a + 6] = Math.sin(yaw / 2);   // yaw about +Z
+    for (let k = 0; k < 6; k++) qv[v + k] = 0;
+  }
+
+  private force(b: Box, fx: number, fz: number, torque = 0) {
+    const f = this.data.xfrc_applied, o = this.boxBody[b.i] * 6;
+    f[o] = fx; f[o + 1] = -fz; f[o + 2] = 0; f[o + 3] = 0; f[o + 4] = 0; f[o + 5] = torque;
+  }
+
+  /** Suction on: weld the carton to the cup where it is now. */
+  private grip(b: Box) {
+    const xp = this.data.xpos, xq = this.data.xquat;
+    const t = this.toolBody * 3, o = this.boxBody[b.i] * 3, tq = this.toolBody * 4, bq = this.boxBody[b.i] * 4;
+    const inv = new Quaternion(xq[tq + 1], xq[tq + 2], xq[tq + 3], xq[tq]).invert();   // MuJoCo frame throughout
+    const rel = new Vector3(xp[o] - xp[t], xp[o + 1] - xp[t + 1], xp[o + 2] - xp[t + 2]).applyQuaternion(inv);
+    const rq = inv.multiply(new Quaternion(xq[bq + 1], xq[bq + 2], xq[bq + 3], xq[bq]));
+    const e = this.model.eq_data, k = b.i * this.mj.mjNEQDATA;   // anchor 0-2, relpos 3-5, relquat 6-9, torquescale 10
+    e[k] = 0; e[k + 1] = 0; e[k + 2] = 0;
+    e[k + 3] = rel.x; e[k + 4] = rel.y; e[k + 5] = rel.z;
+    e[k + 6] = rq.w; e[k + 7] = rq.x; e[k + 8] = rq.y; e[k + 9] = rq.z; e[k + 10] = 1;
+    this.data.eq_active[b.i] = 1;
+    this.held = b;
+    b.state = 'held';
+  }
+
+  private ungrip(b: Box, state: BoxState) {
+    this.data.eq_active[b.i] = 0;
+    if (this.held === b) this.held = null;
+    b.state = state;
+  }
+
+  // ------------------------------------------------------------------------------------ conveyor
+  private onBelt() {
+    return this.boxes.filter((b) => b.state === 'belt').map((b) => ({ b, p: this.pos(b), yaw: this.yaw(b) }))
+      .filter(({ p }) => p.x > BELT.x0 - 0.1 && p.x < BELT.x1 + 0.05 && Math.abs(p.z - BELT.z) < BELT.width / 2 && p.y > BELT.top)
+      .map(({ b, p, yaw }) => ({ b, x: p.x, yaw }))
+      .sort((a, b) => b.x - a.x);
+  }
+
+  private lead() { return this.onBelt()[0]?.b; }
+
+  private partPresent() {
+    const l = this.onBelt()[0];
+    return !!l && l.x + reach(l.yaw) >= BELT.stopX - 0.004 && Math.abs(this.vel(l.b).x) < 0.03;
+  }
+
+  /** A carton that fell back onto the belt rejoins the queue once it has settled. */
+  private classify() {
+    for (const b of this.boxes) {
+      if (b.state !== 'free' || b === this.carried) continue;
+      const p = this.pos(b), v = this.vel(b);
+      if (v.length() < 0.05 && p.x > BELT.x0 && p.x < BELT.x1 && Math.abs(p.z - BELT.z) < BELT.width / 2
+        && Math.abs(p.y - (BELT.top + BOX.H / 2)) < 0.015) b.state = 'belt';
+    }
+  }
+
+  /** Friction-limited belt drive with zone accumulation: each carton keeps its gap to the one ahead (or the stop). */
+  private beltDrive() {
+    for (const b of this.boxes) this.force(b, 0, 0);
+    // the escapement: a carton the robot has not yet carried clear of the pick window still blocks it
+    let front = BELT.stopX;
+    let first = true;
+    for (const b of this.boxes) {
+      if (b.state !== 'held' && b.state !== 'free') continue;
+      const p = this.pos(b);
+      if (p.x > BELT.x0 && p.x < BELT.x1 && Math.abs(p.z - BELT.z) < 0.2 && p.y < BELT.top + BOX.H + 0.2) {
+        front = Math.min(front, p.x - reach(this.yaw(b)) - 0.05);
+        first = false;
+      }
+    }
+    const mu = 0.8 * BOX.mass * 9.81;
+    for (const { b, x, yaw } of this.onBelt()) {
+      const gap = front - (x + reach(yaw)) - (first ? 0 : b.gap);
+      const target = this.running ? clamp(gap * 6, 0, BELT.speed) : 0;
+      const v = this.vel(b);
+      const fx = clamp((BOX.mass * (target - v.x)) / 0.08, -mu, mu);
+      const fz = clamp((BOX.mass * -v.z) / 0.1 + (BELT.z - this.pos(b).z) * 20, -mu, mu);
+      // the belt's friction also resists the carton turning on it
+      const wz = this.data.qvel[this.boxV[b.i] + 5];
+      this.force(b, fx, fz, clamp(-0.4 * wz, -0.4, 0.4));
+      front = x - reach(yaw);
+      first = false;
+    }
+  }
+
+  private spawn(spec: Spec, onBelt = true): Box {
+    const used = new Set(this.boxes.map((b) => b.i));
+    let i = 0;
+    while (used.has(i) && i < POOL) i++;
+    if (i >= POOL) throw new Error('carton pool exhausted');
+    const b: Box = { i, id: onBelt ? this.nextId++ : 0, spec, state: onBelt ? 'belt' : 'hand', exiting: false, gap: spec.touching ? 0 : 0.05 };
+    this.boxes.push(b);
+    this.emit({ k: 'kind', i, sku: spec.sku, damaged: !!spec.damaged });
+    return b;
+  }
+
+  private parkBox(b: Box) {
+    this.data.eq_active[b.i] = 0;
+    if (this.held === b) this.held = null;
+    const q = park(b.i);
+    this.setPose(b, new Vector3(q.x, q.y, q.z), 0);
+    this.mj.mj_forward(this.model, this.data);
+    this.boxes = this.boxes.filter((x) => x !== b);
+  }
+
+  private spawner() {
+    if (!this.running) return;
+    const spec = PLAN[this.spawnIdx % PLAN.length];
+    const belt = this.onBelt();
+    if (belt.length >= 3 || this.boxes.length >= POOL - 1) return;
+    const last = belt[belt.length - 1];
+    const hx = reach(spec.yaw ?? 0);
+    if (last && last.x - reach(last.yaw) < BELT.spawnX + hx + (spec.touching ? 0 : 0.12)) return;
+    if (spec.afterPick) {
+      const prev = this.boxes.find((b) => b.spec === PLAN[(this.spawnIdx - 1) % PLAN.length]);
+      if (prev && prev.state === 'belt') return;
+    }
+    const b = this.spawn(spec);
+    const x = spec.touching && last ? last.x - reach(last.yaw) - hx : BELT.spawnX;
+    this.setPose(b, new Vector3(x, BELT.top + BOX.H / 2 + 0.001, BELT.z), spec.yaw ?? 0);
+    this.mj.mj_forward(this.model, this.data);               // world poses are stale after a teleport until recomputed
+    this.spawnIdx++;
+  }
+
+  /** Case 7: the infeed stops upstream with the next carton mid-belt, and restarts once the cell has waited. */
+  private line() {
+    const b = this.onBelt().find((x) => x.b.spec.edge === 7);
+    if (b && !this.jammed && this.running && b.x > -0.85 && !this.seen.has(7)) {
+      this.running = false;
+      this.jammed = true;
+      this.log('Line: infeed stopped upstream', 'info');
+    }
+    if (this.jammed && this.waiting > 3.2) {
+      this.running = true;
+      this.jammed = false;
+      this.log('Line: infeed running again', 'info');
     }
   }
 
   // ------------------------------------------------------------------------------------ robot primitives
-  private apply() {
-    this.cell.setJoints(this.q);
-    fk(this.q, this.T);
-    if (this.held) {
-      const m = new Matrix4().multiplyMatrices(this.T, this.rel);
-      m.decompose(this.held.obj.position, this.held.obj.quaternion, this.held.obj.scale);
-    }
-  }
-
   private toolYaw() {
     const e = this.T.elements;
     return Math.atan2(-e[2], e[0]);
   }
 
-  /** IK for a point-to-point goal; a box is symmetric under a half turn, so take the yaw that turns wrist 3 least. */
+  private here() { return new Vector3().setFromMatrixPosition(this.T); }
+
   private solve(p: Vector3, yaw: number, from: number[] = this.q) {
-    const a = solveFrom({ p, yaw }, from);
-    const b = solveFrom({ p, yaw: yaw + Math.PI }, from);
-    const cost = (s: { q: number[]; err: number }) => Math.abs(s.q[5] - from[5]) + Math.abs(s.q[0] - from[0]) * 0.5 + s.err * 50;
-    return cost(a) <= cost(b) ? a.q : b.q;
+    const cost = (s: { q: number[]; err: number }) => Math.abs(s.q[5] - from[5]) + Math.abs(s.q[0] - from[0]) * 0.5 + s.err * 1e3;
+    let best: { q: number[]; err: number } | null = null;
+    // both half-turn yaws (a carton is symmetric), from the current pose and, if that fails, from the ready pose
+    for (const seed of [from, this.readyQ]) {
+      for (const y of [yaw, yaw + Math.PI]) {
+        const s = solveFrom({ p, yaw: y }, seed);
+        s.q[5] = nearest(s.q[5], from[5]);
+        if (!best || cost(s) < cost(best)) best = s;
+      }
+      if (best && best.err < 2e-3) break;
+    }
+    return best!.q;
   }
 
-  /**
-   * A blended move through via points, like a UR program with blend radii: the arm passes each via point without
-   * stopping and only eases in and out at the ends. Catmull-Rom through the joint-space waypoints, timed by
-   * joint distance.
-   */
+  private setQ(q: number[]) {
+    for (let j = 0; j < 6; j++) this.q[j] = q[j];
+    fk(this.q, this.T);
+  }
+
+  /** Blended move through via points (UR blend radii): no stop at a via point, easing only at the ends. */
   private *moveP(targets: { p: Vector3; yaw: number }[], scale = 1): Proc {
     const pts: number[][] = [[...this.q]];
     for (const tg of targets) pts.push(this.solve(tg.p, tg.yaw, pts[pts.length - 1]));
@@ -193,6 +378,7 @@ export class Sim {
     const D = seg.reduce((a, b) => a + b, 0);
     const T = clamp(D / 2.6 + 0.35, 0.55, 1.8) / scale;
     const at = (i: number) => pts[clamp(i, 0, pts.length - 1)];
+    const q = [0, 0, 0, 0, 0, 0];
     for (let t = 0; t < T;) {
       t = Math.min(T, t + (yield));
       let d = ease(t / T) * D, i = 0;
@@ -200,46 +386,32 @@ export class Sim {
       const u = clamp(d / seg[i], 0, 1), u2 = u * u, u3 = u2 * u;
       const [p0, p1, p2, p3] = [at(i - 1), at(i), at(i + 1), at(i + 2)];
       for (let j = 0; j < 6; j++) {
-        this.q[j] = 0.5 * (2 * p1[j] + (-p0[j] + p2[j]) * u + (2 * p0[j] - 5 * p1[j] + 4 * p2[j] - p3[j]) * u2
+        q[j] = 0.5 * (2 * p1[j] + (-p0[j] + p2[j]) * u + (2 * p0[j] - 5 * p1[j] + 4 * p2[j] - p3[j]) * u2
           + (-p0[j] + 3 * p1[j] - 3 * p2[j] + p3[j]) * u3);
       }
-      this.apply();
+      this.setQ(q);
     }
   }
 
-  /** Lift straight up off what was just gripped or placed, then blend into the move to `to`. */
+  /** Lift straight up off what was just gripped or placed, carry high, come down over the target. */
   private *transfer(to: Vector3, yaw: number, scale = 1): Proc {
-    const up = this.here().add(new Vector3(0, 0.1, 0));
-    const via = [{ p: up, yaw: this.toolYaw() }];
-    // carry high, then come down over the target: nothing is swept low past the base, the stack or a bin rim
+    const via = [{ p: this.here().add(new Vector3(0, 0.1, 0)), yaw: this.toolYaw() }];
     if (to.y < SAFE_Y) via.push({ p: new Vector3(to.x, SAFE_Y, to.z), yaw });
     yield* this.moveP([...via, { p: to, yaw }], scale);
   }
 
-  private *moveJ(p: Vector3, yaw: number, scale = 1): Proc {
-    const q0 = [...this.q];
-    const q1 = this.solve(p, yaw);
-    const dq = Math.max(...q1.map((v, i) => Math.abs(v - q0[i])));
-    const T = clamp(dq / 2.9 + 0.32, 0.5, 1.35) / scale;
-    for (let t = 0; t < T;) {
-      t = Math.min(T, t + (yield));
-      const s = ease(t / T);
-      for (let j = 0; j < 6; j++) this.q[j] = q0[j] + (q1[j] - q0[j]) * s;
-      this.apply();
-    }
-  }
-
   private *moveL(p1: Vector3, yaw: number | null, T: number): Proc {
-    const p0 = new Vector3().setFromMatrixPosition(this.T);
+    const p0 = this.here();
     const y0 = this.toolYaw();
     const y1 = yaw === null ? y0 : halfTurn(nearest(yaw, y0), y0);
     const p = new Vector3();
+    const q = [...this.q];
     for (let t = 0; t < T;) {
       t = Math.min(T, t + (yield));
       const s = ease(t / T);
       p.lerpVectors(p0, p1, s);
-      ik({ p, yaw: y0 + (y1 - y0) * s }, this.q, 8, 5e-5);
-      this.apply();
+      ik({ p, yaw: y0 + (y1 - y0) * s }, q, 6, 5e-5);
+      this.setQ(q);
     }
   }
 
@@ -252,33 +424,15 @@ export class Sim {
     yield* this.wait(0.38);
   }
 
-  private here() { return new Vector3().setFromMatrixPosition(this.T); }
-
-  private attach(b: Box) {
-    this.held = b;
-    b.state = 'held';
-    b.obj.updateMatrix();
-    this.rel.copy(this.T).invert().multiply(b.obj.matrix);
-  }
-
-  private release(b: Box, state: BoxState) {
-    if (this.held === b) this.held = null;
-    b.yaw = yawOf(b.obj);
-    b.obj.rotation.set(0, b.yaw, 0);
-    b.state = state;
-  }
-
   // ------------------------------------------------------------------------------------ the program
   private *program(): Proc {
-    yield* this.moveJ(READY, 0);
-    for (let loop = 0; ; loop++) {
+    for (;;) {
       for (let i = 0; i < PLAN.length; i++) yield* this.cycle(PLAN[i]);
       yield* this.palletChange();
     }
   }
 
   private *cycle(spec: Spec): Proc {
-    // wait for a part at the photo-eye
     let flagged = false;
     for (this.waiting = 0; !this.partPresent();) {
       this.waiting += yield;
@@ -299,7 +453,7 @@ export class Sim {
       yield* this.observe();
       this.log('Depth edge splits it into 2 boxes, picking the lead box first', 'info');
     }
-    if (spec.edge === 1) this.edge(1, `Yaw measured at ${Math.round(box.yaw / DEG)}° off the guide. Grasp re-planned.`);
+    if (spec.edge === 1) this.edge(1, `Yaw measured at ${Math.round(Math.abs(this.yaw(box)) / DEG)}° off the guide. Grasp re-planned.`);
     if (spec.edge === 4) this.edge(4, 'Depth shows one corner 18 mm low. Routed to the reject bin.');
     if (spec.edge === 6) this.edge(6, 'Label reads SKU-B on an SKU-A pallet. Routed to the SKU-B tote.');
 
@@ -307,52 +461,55 @@ export class Sim {
     if (spec.damaged) yield* this.toBin(box, REJECT, 'rejected');
     else if (spec.sku === 'B') yield* this.toBin(box, TOTE_B, 'sorted');
     else yield* this.toPallet(box, spec.edge === 10);
-    // case 8: the operator heads for the pallet as this part goes down, so they arrive during the next transfer
     if (spec.edge === 7) this.side.push(this.operator());
     this.slow = 1;
     yield* this.transfer(READY, 0);
   }
 
   private *pick(box: Box, noSeal: boolean, slips: boolean): Proc {
-    const top = () => new Vector3(box.s, BELT.top + BOX.H, box.z);
-    yield* this.moveL(top().add(new Vector3(0, 0.07, 0)), box.yaw, 0.4);
-    yield* this.moveL(top().add(new Vector3(0, -0.004, 0)), null, 0.28);
+    const top = this.top(box);
+    const at = (dy: number) => top.clone().add(new Vector3(0, dy, 0));
+    yield* this.moveL(at(0.07), this.yaw(box), 0.4);
+    yield* this.moveL(at(-0.003), null, 0.28);              // press 3 mm into the carton top
     this.vacTarget = noSeal ? 9 : 66;
     yield* this.wait(0.2);
     if (noSeal) {
       this.edge(3, 'Vacuum 9 kPa after the press, 55 needed. Venting and pressing again.');
       this.vacTarget = 0;
-      yield* this.moveL(top().add(new Vector3(0, 0.04, 0)), null, 0.25);
+      yield* this.moveL(at(0.04), null, 0.25);
       yield* this.wait(0.15);
-      yield* this.moveL(top().add(new Vector3(0, -0.006, 0)), null, 0.28);
+      yield* this.moveL(at(-0.004), null, 0.28);
       this.vacTarget = 64;
       yield* this.wait(0.45);
       this.log('Seal confirmed at 64 kPa with +0.25 s dwell', 'ok');
     }
-    this.attach(box);
+    this.grip(box);
     if (slips) {
-      yield* this.moveL(top().add(new Vector3(0, 0.06, 0)), null, 0.2);
+      yield* this.moveL(at(0.06), null, 0.2);
       this.vacTarget = 14;
-      this.release(box, 'falling');
-      box.vy = 0; box.landY = BELT.top + BOX.H; box.spin = 12 * DEG; box.onLand = 'belt';
+      this.ungrip(box, 'free');                              // the carton falls on its own
       this.edge(5, 'Vacuum fell from 62 to 14 kPa in the lift. Motion held, re-locating the box.');
       yield* this.moveL(this.here().add(new Vector3(0, 0.06, 0)), null, 0.3);
-      for (; box.state !== 'belt' || !this.partPresent();) yield;
+      for (let t = 0; (box.state !== 'belt' || !this.partPresent()) && t < 6;) t += yield;
       yield* this.wait(0.2);
       yield* this.observe();
-      this.log(`Box found at ${Math.round(box.yaw / DEG)}° yaw, regrasping`, 'info');
+      this.log(`Box found at ${Math.round(Math.abs(this.yaw(box)) / DEG)}° yaw, regrasping`, 'info');
       yield* this.pick(box, false, false);
       this.slow = 0.7;
       this.log('Transfer at 70% speed after the slip', 'info');
       return;
     }
-    yield* this.moveL(top().add(new Vector3(0, 0.05, 0)), null, 0.2);
+    yield* this.moveL(at(0.05), null, 0.2);
   }
 
   private placeYaw(box: Box, target: number) {
-    // keep the box's yaw relative to the tool: tool yaw = target - (box yaw - tool yaw)
-    const rel = yawOf(box.obj) - this.toolYaw();
-    return target - rel;
+    return target - (this.yaw(box) - this.toolYaw());
+  }
+
+  /** Whether a carton the robot is not holding is resting in slot k right now. */
+  private occupied(k: number) {
+    const s = slotPose(k).add(new Vector3(0, -BOX.H / 2, 0));
+    return this.boxes.some((b) => b !== this.held && b.state !== 'parked' && this.pos(b).distanceTo(s) < 0.05);
   }
 
   private *toPallet(box: Box, sticks: boolean): Proc {
@@ -360,30 +517,27 @@ export class Sim {
     const yaw = this.placeYaw(box, 0);
     const above = (s: number) => slotPose(s).add(new Vector3(0, 0.13, 0));
     yield* this.transfer(above(k), yaw, this.slow);
-    if (this.slotTruth[k]) {
+    if (this.occupied(k)) {
       yield* this.observe();
       this.slotBook[k] = 'occupied';
       this.edge(9, `Slot ${k + 1} holds a box the robot did not place. Reconciled as occupied, not counted.`);
       k = this.slotBook.indexOf('empty');
       this.log(`Place re-planned to slot ${k + 1}`, 'info');
-      yield* this.moveJ(above(k), yaw);
+      yield* this.transfer(above(k), yaw);
     }
     const at = slotPose(k);
-    yield* this.moveL(at.clone().add(new Vector3(0, 0.003, 0)), null, 0.34);
+    yield* this.moveL(at.clone().add(new Vector3(0, -0.001, 0)), null, 0.34);
     this.vacTarget = 0;
-    yield* this.wait(0.12);
     if (sticks) {
-      yield* this.moveL(at.clone().add(new Vector3(0, 0.045, 0)), null, 0.22);
+      yield* this.wait(0.12);
+      yield* this.moveL(at.clone().add(new Vector3(0, 0.045, 0)), null, 0.22);   // still welded: it lifts with the cup
       this.edge(10, 'Box still on the cup after venting. Setting down and pulsing blow-off.');
-      yield* this.moveL(at.clone().add(new Vector3(0, 0.003, 0)), null, 0.22);
+      yield* this.moveL(at.clone().add(new Vector3(0, -0.001, 0)), null, 0.22);
       this.puffT = 0;
-      yield* this.wait(0.3);
-      this.log('Release verified by the depth check', 'ok');
     }
-    this.release(box, 'placed');
-    box.obj.position.copy(at);
-    box.obj.rotation.set(0, square(box.yaw), 0);
-    this.slotTruth[k] = box;
+    this.ungrip(box, 'placed');
+    yield* this.wait(sticks ? 0.3 : 0.12);
+    if (sticks) this.log('Release verified by the depth check', 'ok');
     this.slotBook[k] = 'occupied';
     this.stats.placed++;
     this.publish();
@@ -396,8 +550,7 @@ export class Sim {
     yield* this.transfer(over, this.placeYaw(box, 0), this.slow);
     yield* this.moveL(new Vector3(bin.x, bin.floor + 0.2, bin.z), null, 0.28);
     this.vacTarget = 0;
-    this.release(box, 'falling');
-    box.vy = 0; box.landY = bin.floor + 0.01 + BOX.H; box.spin = 9 * DEG; box.onLand = 'binned';
+    this.ungrip(box, 'binned');                              // dropped: it lands in the bin under gravity
     yield* this.wait(0.14);
     this.stats[kind]++;
     this.publish();
@@ -408,110 +561,109 @@ export class Sim {
   private *palletChange(): Proc {
     this.status('PALLET CHANGE', 'hold');
     this.log(`Pallet full, 12/12. Generation ${this.stats.generation} released downstream`, 'info');
-    const exiting = new Group();
-    this.cell.scene.add(exiting);
-    exiting.attach(this.cell.pallet);
-    const gone = this.boxes.filter((b) => b.state === 'placed' || b.state === 'binned' || b.state === 'hand');
-    for (const b of gone) if (b.state !== 'binned') exiting.attach(b.obj);
-    const fade = new Fade([exiting, ...gone.filter((b) => b.state === 'binned').map((b) => b.obj)]);
+    const gone = this.boxes.filter((b) => b.state === 'placed' || b.state === 'binned');
+    for (const b of gone) b.exiting = true;
+    // the pallet rolls out with its load riding on it
     for (let t = 0; t < 2.2;) {
       t = Math.min(2.2, t + (yield));
-      exiting.position.x = 0.8 * ease(t / 2.2);
-      fade.set(1 - clamp((t - 0.6) / 1.5, 0, 1));
+      this.setPallet(PALLET.x + 0.8 * ease(t / 2.2), PALLET.top);
+      this.fade = 1 - clamp((t - 0.6) / 1.5, 0, 1);
     }
-    fade.restore();
-    for (const b of gone) b.obj.removeFromParent();
-    this.boxes = this.boxes.filter((b) => !gone.includes(b));
-    const p = this.cell.pallet;
-    this.cell.scene.attach(p);
-    exiting.removeFromParent();
-    p.position.set(PALLET.x, PALLET.top - 0.14, PALLET.z);
-    const fadeIn = new Fade([p]);
+    for (const b of gone) this.parkBox(b);
     for (let t = 0; t < 1.1;) {
       t = Math.min(1.1, t + (yield));
-      p.position.y = PALLET.top - 0.14 * (1 - ease(t / 1.1));
-      fadeIn.set(clamp(t / 0.6, 0, 1));
+      this.setPallet(PALLET.x, PALLET.top - 0.14 * (1 - ease(t / 1.1)));
+      this.fade = clamp(t / 0.6, 0, 1);
     }
-    fadeIn.restore();
-    this.slotTruth.fill(null);
+    this.fade = 1;
     this.slotBook.fill('empty');
     this.stats.generation++;
-    this.stats.onPallet = 0;
     this.seen.clear();
-    this.hud.resetEdges();
+    this.emit({ k: 'reset' });
     this.publish();
     this.log(`Empty pallet in place. Generation ${this.stats.generation}`, 'info');
     this.status('RUNNING', 'run');
   }
 
-  // ------------------------------------------------------------------------------------ the operator (case 8 + 9)
+  private setPallet(x: number, y: number) {
+    this.pallet.set(x, y, PALLET.z);
+    const m = this.data.mocap_pos;
+    m[0] = x; m[1] = -PALLET.z; m[2] = y;
+  }
+
+  // ------------------------------------------------------------------------------------ the operator (cases 8 + 9)
+  /** Where the operator's hands are (matches the figure's pose in world.ts). */
+  private hands() {
+    const P = this.person;
+    const local = new Vector3(0, 0.97 + 0.1 + 0.2 + 0.065 * P.reach, 0.36 + 0.12 * P.reach);
+    return local.applyAxisAngle(new Vector3(0, 1, 0), P.rot).add(new Vector3(P.x, FLOOR_Y, P.z));
+  }
+
+  private carryOperatorBox() {
+    const b = this.carried;
+    if (!b || b.state !== 'hand') return;
+    this.setPose(b, this.hands().add(new Vector3(0, 0.05 - BOX.H / 2, 0)), this.person.rot + Math.PI / 2);
+  }
+
   private *operator(): Proc {
-    const P = this.cell.person;
+    const P = this.person;
     const carried = this.spawn({ sku: 'A' }, false);
-    carried.state = 'hand';
-    P.hands.add(carried.obj);
-    carried.obj.position.set(0, 0.05, 0);
-    carried.obj.rotation.set(0, Math.PI / 2, 0);
-    P.root.visible = true;
-    let phase = 0;
+    this.carried = carried;
+    P.visible = true;
     const walk = function* (from: Vector3, to: Vector3, v: number): Proc {
       const d = to.distanceTo(from);
-      P.root.rotation.y = Math.atan2(to.x - from.x, to.z - from.z);
+      P.rot = Math.atan2(to.x - from.x, to.z - from.z);
       for (let s = 0; s < d;) {
         const dt: number = yield;
         s = Math.min(d, s + v * dt);
-        phase += dt * 7.2;
-        P.root.position.lerpVectors(from, to, s / d);
-        P.pose(phase, 1, carried.state === 'hand' ? 1 : 0, 0);
+        P.phase += dt * 7.2;
+        const at = from.clone().lerp(to, s / d);
+        P.x = at.x; P.z = at.z;
+        P.walk = 1; P.carry = carried.state === 'hand' ? 1 : 0; P.reach = 0;
       }
+      P.walk = 0;
     };
     const turn = function* (to: number, carry: number): Proc {
-      const from = P.root.rotation.y;
-      const target = nearest(to, from);
+      const from = P.rot, target = nearest(to, from);
       for (let t = 0; t < 0.4;) {
         t = Math.min(0.4, t + (yield));
-        P.root.rotation.y = from + (target - from) * ease(t / 0.4);
-        P.pose(phase, 0, carry, 0);
+        P.rot = from + (target - from) * ease(t / 0.4);
+        P.walk = 0; P.carry = carry;
       }
     };
-    P.root.position.copy(PERSON_FROM);
+    P.x = PERSON_FROM.x; P.z = PERSON_FROM.z;
     yield* walk(PERSON_FROM, PERSON_WAIT, 1.15);
-    // pause at the edge of the cell, then step in once the robot has the next part on the cup
-    for (let t = 0; !(this.held && this.held.spec.edge === 8) && t < 12;) { t += yield; P.pose(phase, 0, 1, 0); }
+    for (let t = 0; !(this.held && this.held.spec.edge === 8) && t < 12;) t += yield;
     yield* walk(PERSON_WAIT, PERSON_AT, 1.15);
-    // hand the box onto the next empty slot, the one the robot is about to use
     const k = this.slotBook.indexOf('empty');
-    const at = slotPose(k);
-    yield* turn(Math.atan2(at.x - PERSON_AT.x, at.z - PERSON_AT.z), 1);
+    const slot = slotPose(k).add(new Vector3(0, -BOX.H / 2 + 0.002, 0));
+    yield* turn(Math.atan2(slot.x - PERSON_AT.x, slot.z - PERSON_AT.z), 1);
     this.personPlacing = true;
-    for (let t = 0; t < 0.45;) { t = Math.min(0.45, t + (yield)); P.pose(phase, 0, 1, ease(t / 0.45)); }
-    this.cell.scene.attach(carried.obj);
-    const p0 = carried.obj.position.clone();
-    const r0 = yawOf(carried.obj);
-    const r1 = square(r0);
+    for (let t = 0; t < 0.45;) { t = Math.min(0.45, t + (yield)); P.reach = ease(t / 0.45); }
+    // hand the carton across to the slot, then let go: it settles under gravity
+    const p0 = this.pos(carried), r0 = this.yaw(carried), r1 = square(r0);
+    carried.state = 'free';
     for (let t = 0; t < 0.7;) {
       t = Math.min(0.7, t + (yield));
       const s = ease(t / 0.7);
-      carried.obj.position.lerpVectors(p0, at, s);
-      carried.obj.position.y += Math.sin(s * Math.PI) * 0.04;
-      carried.obj.rotation.set(0, r0 + (r1 - r0) * s, 0);
+      const p = p0.clone().lerp(slot, s);
+      p.y += Math.sin(s * Math.PI) * 0.04;
+      this.setPose(carried, p, r0 + (r1 - r0) * s);
     }
-    carried.obj.position.copy(at);
-    carried.obj.rotation.set(0, r1, 0);
     carried.state = 'placed';
-    this.slotTruth[k] = carried;
+    this.carried = null;
     this.publish();
     this.log(`Operator put a box in slot ${k + 1} by hand`, 'info');
-    for (let t = 0; t < 0.45;) { t = Math.min(0.45, t + (yield)); P.pose(phase, 0, 1 - ease(t / 0.45), 1 - ease(t / 0.45)); }
+    for (let t = 0; t < 0.45;) { t = Math.min(0.45, t + (yield)); const s = 1 - ease(t / 0.45); P.reach = s; P.carry = s; }
     this.personPlacing = false;
     yield* turn(Math.atan2(PERSON_TO.x - PERSON_AT.x, PERSON_TO.z - PERSON_AT.z), 0);
     yield* walk(PERSON_AT, PERSON_TO, 1.25);
-    P.root.visible = false;
+    P.visible = false;
   }
 
   private safety(dt: number) {
-    const P = this.cell.person.root;
-    const r = P.visible ? Math.hypot(P.position.x, P.position.z) : Infinity;
+    const P = this.person;
+    const r = P.visible ? Math.hypot(P.x, P.z) : Infinity;
     const field = r < ZONES.stop ? 2 : r < ZONES.warn ? 1 : 0;
     if (field !== this.field) {
       if (field === 1 && this.field === 0) {
@@ -532,165 +684,57 @@ export class Sim {
     if (field === 2) this.hold = 0.9; else this.hold = Math.max(0, this.hold - dt);
     const target = field === 2 || this.hold > 0 ? 0 : field === 1 ? 0.3 : 1;
     this.speed += clamp(target - this.speed, -dt * 3.5, dt * 1.6);
-    const z = this.cell.zones;
-    const pulse = 0.5 + 0.5 * Math.sin(this.time * 9);
-    z.warn.opacity = field >= 1 ? 0.75 + 0.25 * pulse : 0.5;
-    z.stop.opacity = field === 2 ? 0.75 + 0.25 * pulse : 0.45;
-    z.warnFill.opacity = field === 1 ? 0.1 : 0;
-    z.stopFill.opacity = field === 2 ? 0.12 : 0;
-  }
-
-  // ------------------------------------------------------------------------------------ conveyor + boxes
-  private spawn(spec: Spec, onBelt = true): Box {
-    const obj = makeBox({ sku: spec.sku, damaged: spec.damaged });
-    const b: Box = {
-      id: onBelt ? this.nextId++ : 0, spec, obj, state: onBelt ? 'belt' : 'hand', s: BELT.spawnX, z: BELT.z, yaw: spec.yaw ?? 0,
-      gap: spec.touching ? 0 : 0.05, vy: 0, landY: 0, spin: 0, onLand: 'belt',
-    };
-    this.boxes.push(b);
-    this.cell.scene.add(obj);
-    return b;
-  }
-
-  private place(b: Box) {
-    b.obj.position.set(b.s, BELT.top + BOX.H, b.z);
-    b.obj.rotation.set(0, b.yaw, 0);
-  }
-
-  private onBelt() {
-    return this.boxes.filter((b) => b.state === 'belt').sort((a, b) => b.s - a.s);
-  }
-
-  private lead() { return this.onBelt()[0]; }
-
-  private partPresent() {
-    const b = this.lead();
-    return !!b && b.s + reach(b.yaw) >= BELT.stopX - 0.003;
-  }
-
-  private belt(dt: number) {
-    const v = this.running ? BELT.speed : 0;
-    this.cell.beltTex.offset.x -= (v * dt) / 0.12;
-    let front = BELT.stopX;
-    let first = true;
-    // a box the robot has not yet carried clear of the pick window still blocks it (the escapement holds the next)
-    for (const b of this.boxes) {
-      if (b.state !== 'held' && b.state !== 'falling') continue;
-      const p = b.obj.position;
-      if (p.x > BELT.x0 && p.x < BELT.x1 && Math.abs(p.z - BELT.z) < 0.2 && p.y < BELT.top + BOX.H + 0.2) {
-        front = Math.min(front, p.x - reach(yawOf(b.obj)) - 0.05);
-        first = false;
-      }
-    }
-    for (const b of this.onBelt()) {
-      const limit = front - (first ? 0 : b.gap) - reach(b.yaw);
-      b.s = Math.min(b.s + v * dt, limit);
-      this.place(b);
-      front = b.s - reach(b.yaw);
-      first = false;
-    }
-    this.cell.eyeBeam.color.set(this.partPresent() ? '#30d158' : '#ff3b30');
-  }
-
-  private spawner() {
-    if (!this.running) return;
-    const spec = PLAN[this.spawnIdx % PLAN.length];
-    const belt = this.onBelt();
-    if (belt.length >= 3) return;
-    const last = belt[belt.length - 1];
-    const hx = reach(spec.yaw ?? 0);
-    if (last && last.s - reach(last.yaw) < BELT.spawnX + hx + (spec.touching ? 0 : 0.12)) return;
-    if (spec.afterPick) {
-      const prev = this.boxes.filter((b) => b.spec === PLAN[(this.spawnIdx - 1) % PLAN.length]).pop();
-      if (prev && prev.state === 'belt') return;
-    }
-    const b = this.spawn(spec);
-    b.s = spec.touching && last ? last.s - reach(last.yaw) - hx : BELT.spawnX;
-    this.place(b);
-    this.spawnIdx++;
-  }
-
-  /** Case 7: the infeed stops upstream with the next box mid-belt, and restarts once the cell has waited. */
-  private line() {
-    const b = this.onBelt().find((x) => x.spec.edge === 7);
-    if (b && !this.jammed && this.running && b.s > -0.85 && !this.seen.has(7)) {
-      this.running = false;
-      this.jammed = true;
-      this.log('Line: infeed stopped upstream', 'info');
-    }
-    if (this.jammed && this.waiting > 3.2) {
-      this.running = true;
-      this.jammed = false;
-      this.log('Line: infeed running again', 'info');
-    }
-    const on = this.jammed && Math.sin(this.time * 10) > 0;
-    this.cell.beacon.emissive.set(on ? '#ffb000' : '#000000');
-    this.cell.beacon.emissiveIntensity = on ? 2.2 : 0;
-  }
-
-  private falling(dt: number) {
-    for (const b of this.boxes) {
-      if (b.state !== 'falling') continue;
-      b.vy -= 9.81 * dt;
-      b.obj.position.y += b.vy * dt;
-      b.obj.rotation.y += b.spin * dt * 4;
-      if (b.obj.position.y <= b.landY) {
-        b.obj.position.y = b.landY;
-        b.obj.rotation.x = b.obj.rotation.z = 0;
-        b.state = b.onLand;
-        b.yaw = b.obj.rotation.y;
-        if (b.onLand === 'belt') { b.s = b.obj.position.x; b.z = b.obj.position.z; }
-        else b.obj.position.y = b.landY;
-      }
-    }
   }
 
   private effects(dt: number) {
-    const { scan, puff } = this.cell;
-    if (this.scanT >= 0) {
-      this.scanT += dt;
-      const t = this.scanT;
-      const a = t < 0.1 ? t / 0.1 : t < 0.24 ? 1 : Math.max(0, 1 - (t - 0.24) / 0.12);
-      scan.root.visible = a > 0;
-      (scan.mats[0] as Material & { opacity: number }).opacity = 0.16 * a;
-      (scan.mats[1] as Material & { opacity: number }).opacity = 0.8 * a;
-      if (t > 0.36) { this.scanT = -1; scan.root.visible = false; }
-    }
-    if (this.puffT >= 0) {
-      this.puffT += dt;
-      const u = this.puffT / 0.45;
-      puff.root.visible = u < 1;
-      puff.mat.opacity = 0.85 * (1 - u);
-      for (const s of puff.root.children) {
-        const [dx, dz] = s.userData.dir as [number, number];
-        const r = 0.03 + 0.07 * u;
-        s.position.set(dx * r, 0.01 * u, dz * r);
-        s.scale.setScalar(1 + u * 1.5);
-      }
-      if (u >= 1) this.puffT = -1;
+    if (this.scanT >= 0) { this.scanT += dt; if (this.scanT > 0.36) this.scanT = -1; }
+    if (this.puffT >= 0) { this.puffT += dt; if (this.puffT > 0.45) this.puffT = -1; }
+  }
+
+  // ------------------------------------------------------------------------------------ output
+  get operatorInCell() { return this.person.visible; }
+
+  /** Fill the per-frame state for the renderer (see S). */
+  write(out: Float32Array) {
+    out[S.time] = this.time;
+    const qpos = this.data.qpos;
+    for (let j = 0; j < 6; j++) out[S.q + j] = qpos[j];
+    out[S.beltOffset] = this.beltOffset;
+    out[S.beam] = this.partPresent() ? 1 : 0;
+    out[S.beacon] = this.jammed && Math.sin(this.time * 10) > 0 ? 1 : 0;
+    out[S.field] = this.field;
+    const t = this.scanT;
+    out[S.scan] = t < 0 ? 0 : t < 0.1 ? t / 0.1 : t < 0.24 ? 1 : Math.max(0, 1 - (t - 0.24) / 0.12);
+    out[S.puff] = this.puffT < 0 ? -1 : this.puffT / 0.45;
+    out[S.pallet] = this.pallet.x; out[S.pallet + 1] = this.pallet.y; out[S.pallet + 2] = this.pallet.z;
+    out[S.fade] = this.fade;
+    const P = this.person;
+    out.set([P.visible ? 1 : 0, P.x, P.z, P.rot, P.phase, P.walk, P.carry, P.reach], S.person);
+    out[S.placing] = this.personPlacing ? 1 : 0;
+    const live = new Map(this.boxes.map((b) => [b.i, b]));
+    const xp = this.data.xpos, xq = this.data.xquat;
+    for (let i = 0; i < POOL; i++) {
+      const o = S.boxes + i * S.stride, bp = this.boxBody[i] * 3, bq = this.boxBody[i] * 4;
+      const b = live.get(i);
+      out[o] = xp[bp]; out[o + 1] = xp[bp + 2]; out[o + 2] = -xp[bp + 1];
+      out[o + 3] = xq[bq + 1]; out[o + 4] = xq[bq + 3]; out[o + 5] = -xq[bq + 2]; out[o + 6] = xq[bq];
+      out[o + 7] = b ? 1 : 0;
+      out[o + 8] = b?.exiting ? 1 : 0;
     }
   }
 
-  // ------------------------------------------------------------------------------------ HUD plumbing
-  private log(text: string, tone: Tone) { this.hud.log(this.time, text, tone); }
+  private log(text: string, tone: Tone) { this.emit({ k: 'log', t: this.time, text, tone }); }
 
   private edge(n: number, detail: string) {
     if (!this.seen.has(n)) { this.seen.add(n); this.stats.edges = this.seen.size; this.publish(); }
-    this.hud.edge(this.time, n, detail);
-    this.hud.log(this.time, `Edge ${n}/10 · ${CASES[n - 1].code} · ${detail}`, 'edge');
+    this.emit({ k: 'edge', t: this.time, n, detail });
+    this.emit({ k: 'log', t: this.time, text: `Edge ${n}/10 · ${CASES[n - 1].code} · ${detail}`, tone: 'edge' });
   }
 
-  private status(label: string, tone: Tone) {
-    this.hud.status(label, tone);
-    const [red, amber, green] = this.cell.stack;
-    red.emissiveIntensity = tone === 'stop' ? 2.4 : 0;
-    amber.emissiveIntensity = tone === 'hold' ? 2.4 : 0;
-    green.emissiveIntensity = tone === 'run' ? 2.0 : 0;
-  }
+  private status(label: string, tone: Tone) { this.emit({ k: 'status', label, tone }); }
 
   private publish() {
-    this.stats.onPallet = this.slotTruth.filter(Boolean).length;
-    this.hud.stats({ ...this.stats });
+    this.stats.onPallet = this.boxes.filter((b) => b.state === 'placed' && !b.exiting).length;
+    this.emit({ k: 'stats', s: { ...this.stats } });
   }
 }
-
