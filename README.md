@@ -31,7 +31,7 @@ npm run lhci       # Lighthouse audit (build with BASE_PATH=/ first)
 | [Astro](https://github.com/withastro/astro) | Components, a single data file for content, and build-time image optimization (photos ship as resized WebP). |
 | [GSAP + ScrollTrigger](https://github.com/greensock/GSAP) | Staggered reveals, hero push-in, the "How it works" loop that lights up the step being read, active nav link. |
 | [Lenis](https://github.com/darkroomengineering/lenis) | Smooth scrolling and offset-aware anchor links, driven by the GSAP ticker. |
-| [model-viewer](https://github.com/google/model-viewer) | The interactive, animated UR5e in the Digital twin section. Loaded only when the section nears the screen. |
+| [three.js](https://github.com/mrdoob/three.js) | The Digital twin: a simulated palletizing cell where a UR5e meets ten scripted edge cases (`src/scripts/twin/`). Loaded only when the section nears the screen. |
 | [Lighthouse CI](https://github.com/GoogleChrome/lighthouse-ci) | `.github/workflows/lighthouse.yml` audits every PR; accessibility or SEO below 95 fails the check. |
 
 All motion is skipped for visitors who prefer reduced motion.
@@ -40,7 +40,8 @@ All motion is skipped for visitors who prefer reduced motion.
 
 `public/models/ur5e.glb` is generated from the UR5e in
 [MuJoCo Menagerie](https://github.com/google-deepmind/mujoco_menagerie) (BSD-3-Clause, see
-`public/models/LICENSE-ur5e.txt`). To rebuild it, for example after changing the motion keyframes:
+`public/models/LICENSE-ur5e.txt`). The twin poses its joints itself (`src/scripts/twin/kinematics.ts` has the
+forward kinematics and IK), so the clip baked into the file is unused. To rebuild the model:
 
 ```bash
 pip install trimesh numpy scipy fast-simplification pygltflib
