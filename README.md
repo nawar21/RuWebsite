@@ -1,7 +1,7 @@
 # RuWebsite
 
-The RuRobotics marketing site, built with [Astro](https://astro.build) and deployed to GitHub Pages at
-<https://nawar21.github.io/RuWebsite/>.
+The RuRobotics marketing site, built with [Astro](https://astro.build). It lives at
+<https://rurobotics.online/> (Cloudflare Pages), with a copy at <https://nawar21.github.io/RuWebsite/> (GitHub Pages).
 
 ## Run it
 
@@ -49,5 +49,12 @@ python scripts/build_ur5e_glb.py path/to/mujoco_menagerie/universal_robots_ur5e
 
 ## Deploying
 
-`.github/workflows/deploy.yml` builds and publishes on every push to `main`. It needs
-**Settings → Pages → Source** set to **GitHub Actions** (the old site deployed straight from the branch root).
+Both hosts rebuild on every push to `main`. `astro.config.mjs` picks the URL and base path for each.
+
+- **Cloudflare Pages** (project `rurobotics`, serves rurobotics.online): build command `npm run build`,
+  output directory `dist`. Cloudflare sets `CF_PAGES=1`, so the build uses `https://rurobotics.online` and base `/`.
+  Every branch also gets a preview at `<branch>.rurobotics.pages.dev`.
+- **GitHub Pages**: `.github/workflows/deploy.yml` builds with base `/RuWebsite` and publishes `dist/`.
+  It needs **Settings → Pages → Source** set to **GitHub Actions**.
+
+`SITE_URL` and `BASE_PATH` override either default. Node is pinned to 24 in `.node-version`.
