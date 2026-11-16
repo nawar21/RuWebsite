@@ -4,3 +4,5 @@ dist/
 .lighthouseci/
 .DS_Store
 .claude/
+scripts/ur5-clip/out/
+__pycache__/

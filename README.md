@@ -49,6 +49,27 @@ pip install trimesh numpy scipy fast-simplification pygltflib
 python scripts/build_ur5e_glb.py path/to/mujoco_menagerie/universal_robots_ur5e
 ```
 
+## The UR5e clip
+
+The looping clip under "The solution" (`public/assets/ur5e-line.mp4`, poster in `src/assets/renders/ur5e-line-poster.jpg`)
+is a render, and the page says so. `scripts/ur5-clip/` rebuilds it:
+
+- `scene.py` builds the cell in Blender (the UR5e from `public/models/ur5e.glb` on a pedestal, an infeed conveyor,
+  a pallet on a lift table, a factory hall) and animates two pick-and-place cycles with the IK in `kin.py`.
+  The camera is handheld: drift, jitter, a slow step and an autofocus hunt at the start.
+- `audio.py` synthesizes the sound from the motion plan: hall tone, conveyor, servo whine that follows joint
+  speed, the vacuum ejector and blow-off, a phone microphone's high-pass and AGC.
+- `post.sh` adds the phone look: noise smeared by temporal noise reduction, exposure breathing, bloom,
+  vignette, colour fringing, over-sharpening and two rounds of compression.
+
+```bash
+cd scripts/ur5-clip
+BLENDER=/Applications/Blender.app/Contents/MacOS/Blender      # Blender 5.2; about 8 s a frame on an M5
+$BLENDER -b --factory-startup -P scene.py -- anim 0 100 32    # out/frames/f_0001..0285.png + out/events.json
+python3 audio.py out/events.json out/floor.wav                # needs numpy
+./post.sh out/frames out/floor.wav ../../public/assets/ur5e-line.mp4
+```
+
 ## Deploying
 
 Both hosts rebuild on every push to `main`. `astro.config.mjs` picks the URL and base path for each.

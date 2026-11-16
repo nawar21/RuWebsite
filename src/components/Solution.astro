@@ -1,5 +1,11 @@
 ---
 import { SOLUTION_CHIPS } from '../data/site';
+import { getImage } from 'astro:assets';
+import { asset } from '../lib/url';
+import posterSrc from '../assets/renders/ur5e-line-poster.jpg';
+
+// The poster is a frame of the clip, re-encoded to WebP at build like the site's photos.
+const poster = await getImage({ src: posterSrc, format: 'webp', width: 1280, quality: 70 });
 ---
 <section class="section section--tight" id="solution">
   <div class="container">
@@ -13,5 +19,64 @@ import { SOLUTION_CHIPS } from '../data/site';
         {SOLUTION_CHIPS.map((c) => <li class="chip"><strong>{c.value}</strong> {c.label}</li>)}
       </ul>
     </div>
+
+    <figure class="line-clip reveal">
+      <video
+        class="line-clip__video"
+        controls
+        muted
+        loop
+        playsinline
+        preload="none"
+        width="1280"
+        height="720"
+        poster={poster.src}
+        aria-describedby="line-clip-caption"
+      >
+        <source src={asset('assets/ur5e-line.mp4')} type="video/mp4" />
+        <a href={asset('assets/ur5e-line.mp4')}>Download the clip (MP4)</a>.
+      </video>
+      <figcaption id="line-clip-caption">
+        <strong>A UR5e palletizing cartons off an infeed conveyor.</strong>{' '}This is a render, not a recording: we made it in Blender from the same UR5e model as the digital twin below,
+        shot like a handheld phone video, with factory sound. It was not filmed at a customer site.
+      </figcaption>
+    </figure>
   </div>
 </section>
+
+<style>
+  .line-clip { margin: 24px 0 0; }
+  .line-clip__video {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+    border-radius: 28px;
+    background: #000;
+    object-fit: cover;
+  }
+  .line-clip figcaption { margin-top: 14px; max-width: 72ch; color: var(--muted); font-size: 0.92rem; line-height: 1.5; }
+  .line-clip figcaption strong { color: var(--text); font-weight: 600; }
+  @media (max-width: 767px) { .line-clip__video { border-radius: 18px; } }
+</style>
+
+<script>
+  // Play the clip, muted, while it is on screen; stop when it scrolls away. Visitors who prefer reduced motion
+  // get the poster and the player controls instead. A pause the visitor makes is never overridden.
+  const video = document.querySelector<HTMLVideoElement>('.line-clip__video');
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (video && !reduce && 'IntersectionObserver' in window) {
+    let pausedByScroll = false;
+    let pausedByVisitor = false;
+    video.addEventListener('pause', () => { if (!pausedByScroll) pausedByVisitor = true; });
+    video.addEventListener('play', () => { pausedByVisitor = false; pausedByScroll = false; });
+    new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        if (!pausedByVisitor) video.play().catch(() => { /* autoplay refused: the controls are there */ });
+      } else if (!video.paused) {
+        pausedByScroll = true;
+        video.pause();
+      }
+    }, { threshold: 0.35 }).observe(video);
+  }
+</script>
