@@ -1,13 +1,19 @@
-// Mounts the digital twin into the #twin section: WebGL renderer, camera with a horizontal drag orbit, the HUD
-// bindings, and the frame loop. Loaded on demand by DigitalTwin.astro when the section nears the viewport.
+// Mounts the digital twin into the #twin section. The physics (MuJoCo) and the cell controller run in a Web Worker
+// (physics.worker.ts); this side renders what it reports: the robot's joint angles as MuJoCo integrated them, every
+// carton's pose, the pallet, the operator, and the HUD events. Loaded on demand by DigitalTwin.astro.
 import {
-  DirectionalLight, HemisphereLight, NeutralToneMapping, PCFSoftShadowMap, PerspectiveCamera, PMREMGenerator,
-  Vector3, WebGLRenderer,
+  DirectionalLight, Group, HalfFloatType, HemisphereLight, Material, Mesh, NeutralToneMapping, PCFShadowMap,
+  PerspectiveCamera, PMREMGenerator, Vector3, WebGLRenderTarget, WebGLRenderer, type Object3D,
 } from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { CASES } from './cases';
-import { Sim, type Hud, type Stats, type Tone } from './sim';
-import { buildCell } from './world';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { CASES } from './cases.ts';
+import { FLOOR_Y, POOL } from './layout.ts';
+import { S, type HudEvent, type Stats, type Tone } from './protocol.ts';
+import { buildCell, makeBox, styleBox } from './world.ts';
 
 export interface TwinOptions { modelUrl: string; reduced: boolean }
 
@@ -32,14 +38,13 @@ function bindHud(root: HTMLElement) {
   const cases = [...(root.closest('section') ?? document).querySelectorAll<HTMLElement>('.twin__case')];
   let bannerUntil = -1;
   let active = 0;
-
   const setActive = (n: number) => {
     active = n;
     for (const li of cases) li.classList.toggle('is-active', Number(li.dataset.case) === n);
   };
 
-  const hud: Hud & { clock(t: number): void } = {
-    log(t, text, tone: Tone) {
+  return {
+    log(t: number, text: string, tone: Tone) {
       const line = document.createElement('p');
       line.className = 'twin__line';
       line.dataset.tone = tone;
@@ -52,7 +57,7 @@ function bindHud(root: HTMLElement) {
       log.prepend(line);
       while (log.children.length > 6) log.lastElementChild!.remove();
     },
-    edge(t, n, detail) {
+    edge(t: number, n: number, detail: string) {
       const c = CASES[n - 1];
       bannerN.textContent = `Edge case ${n}/10 · ${c.code}`;
       bannerTitle.textContent = c.title;
@@ -65,7 +70,7 @@ function bindHud(root: HTMLElement) {
     resetEdges() {
       for (const li of cases) li.classList.remove('is-done', 'is-active');
     },
-    status(label, tone) {
+    status(label: string, tone: Tone) {
       statusText.textContent = label;
       status.dataset.tone = tone;
     },
@@ -78,11 +83,11 @@ function bindHud(root: HTMLElement) {
       set('generation', String(s.generation));
       set('edges', `${s.edges}/10`);
     },
-    tool(vac, payload, speed) {
+    tool(vac: number, payload: number, speed: number) {
       const v = `Vacuum ${vac} kPa · Payload ${payload.toFixed(1)} kg · Speed ${speed}%`;
       if (tool.textContent !== v) tool.textContent = v;
     },
-    clock(t) {
+    clock(t: number) {
       clock.textContent = `T+${fmt(t)}`;
       if (bannerUntil >= 0 && t > bannerUntil) {
         bannerUntil = -1;
@@ -91,7 +96,30 @@ function bindHud(root: HTMLElement) {
       }
     },
   };
-  return hud;
+}
+
+/** Swap objects onto transparent clones of their materials while they fade (shared opacity), and back. */
+class Fader {
+  private clones = new Map<Material, Material>();
+  private fading = new Set<Mesh>();
+  set(objs: Object3D[], opacity: number) {
+    const want = new Set<Mesh>();
+    if (opacity < 0.999) for (const o of objs) o.traverse((m) => { if ((m as Mesh).isMesh) want.add(m as Mesh); });
+    for (const m of this.fading) if (!want.has(m)) { m.material = m.userData.orig; this.fading.delete(m); }
+    for (const m of want) {
+      if (!this.fading.has(m)) {
+        m.userData.orig = m.material;
+        const swap = (mat: Material) => {
+          let c = this.clones.get(mat);
+          if (!c) { c = mat.clone(); c.transparent = true; this.clones.set(mat, c); }
+          return c;
+        };
+        m.material = Array.isArray(m.material) ? m.material.map(swap) : swap(m.material);
+        this.fading.add(m);
+      }
+    }
+    for (const c of this.clones.values()) { c.opacity = opacity; c.depthWrite = opacity > 0.98; }
+  }
 }
 
 export async function mountTwin(root: HTMLElement, opts: TwinOptions) {
@@ -101,16 +129,35 @@ export async function mountTwin(root: HTMLElement, opts: TwinOptions) {
   const toggle = root.querySelector<HTMLButtonElement>('.twin__toggle')!;
   const small = matchMedia('(max-width: 700px), (pointer: coarse)').matches;
 
+  // physics first: MuJoCo (WebAssembly) loads in the worker while the scene is built here
+  const worker = new Worker(new URL('./physics.worker.ts', import.meta.url), { type: 'module' });
+  let resolveFirst: (s: Float32Array) => void;
+  let rejectFirst: (e: Error) => void;
+  const first = new Promise<Float32Array>((res, rej) => { resolveFirst = res; rejectFirst = rej; });
+  let onFrame: (state: Float32Array, events: HudEvent[]) => void = () => {};
+  let pendingEvents: HudEvent[] = [];
+  worker.onmessage = (e: MessageEvent) => {
+    if (e.data.type === 'error') { rejectFirst(new Error(e.data.message)); return; }
+    if (e.data.type === 'frame') {
+      pendingEvents = pendingEvents.concat(e.data.events);
+      resolveFirst(e.data.state);
+      onFrame(e.data.state, e.data.events);
+    }
+  };
+  worker.onerror = (e) => rejectFirst(new Error(e.message || 'physics worker failed'));
+  worker.postMessage({ type: 'init', reduced: opts.reduced });
+
   const renderer = new WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, small ? 1.5 : 2));
   renderer.toneMapping = NeutralToneMapping;
+  renderer.toneMappingExposure = 1.05;
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = PCFSoftShadowMap;
+  renderer.shadowMap.type = PCFShadowMap;
   const canvas = renderer.domElement;
   canvas.className = 'twin__canvas';
   canvas.setAttribute('role', 'img');
   canvas.setAttribute('aria-label',
-    'Simulated palletizing cell in a factory hall: boxes arrive on an infeed conveyor, a UR5e arm with a vacuum cup stacks them on a pallet, with a reject bin, an SKU-B tote, perimeter guarding and floor-marked safety zones.');
+    'MuJoCo physics simulation of a palletizing cell in a factory hall: boxes arrive on an infeed conveyor, a UR5e arm with a vacuum cup stacks them on a pallet, with a reject bin, an SKU-B tote, perimeter guarding and floor-marked safety zones.');
 
   const cell = await buildCell(opts.modelUrl);
   const { scene } = cell;
@@ -130,8 +177,16 @@ export async function mountTwin(root: HTMLElement, opts: TwinOptions) {
   sun.shadow.radius = 3;
   scene.add(sun, sun.target);
 
+  // the carton pool, posed from the physics state
+  const boxes: Group[] = [];
+  for (let i = 0; i < POOL; i++) {
+    const b = makeBox({ sku: 'A' });
+    b.visible = false;
+    scene.add(b);
+    boxes.push(b);
+  }
+  const fader = new Fader();
   const hud = bindHud(root);
-  const sim = new Sim(cell, hud);
 
   // camera: framed on the cell, dragged left/right around it (vertical drags scroll the page)
   const camera = new PerspectiveCamera(30, 1, 0.05, 40);
@@ -139,10 +194,27 @@ export async function mountTwin(root: HTMLElement, opts: TwinOptions) {
   const base = { az: 0.55, el: 0.36 };
   let orbit = 0;
   let zoom = 1;
+
+  // desktop: ambient occlusion where things meet (box on box, box on pallet, feet on the floor)
+  let composer: EffectComposer | null = null;
+  if (!small) {
+    const rt = new WebGLRenderTarget(1, 1, { samples: 4, type: HalfFloatType });
+    composer = new EffectComposer(renderer, rt);
+    composer.addPass(new RenderPass(scene, camera));
+    const gtao = new GTAOPass(scene, camera, 1, 1);
+    gtao.updateGtaoMaterial({ radius: 0.18, distanceExponent: 1.4, thickness: 1, scale: 1.1, samples: 12 });
+    gtao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 12 });
+    gtao.blendIntensity = 0.9;
+    composer.addPass(gtao);
+    composer.addPass(new OutputPass());
+  }
+
   const frame = () => {
     const w = view.clientWidth, h = view.clientHeight;
     if (!w || !h) return;
     renderer.setSize(w, h, false);
+    composer?.setPixelRatio(renderer.getPixelRatio());
+    composer?.setSize(w, h);
     camera.aspect = w / h;
     const vf = (camera.fov * Math.PI) / 360;
     const hf = Math.atan(Math.tan(vf) * camera.aspect);
@@ -153,52 +225,130 @@ export async function mountTwin(root: HTMLElement, opts: TwinOptions) {
     camera.lookAt(aim);
     camera.updateProjectionMatrix();
   };
+  const render = () => (composer ? composer.render() : renderer.render(scene, camera));
 
-  let playing = !opts.reduced;
-  let visible = true;
-  let raf = 0;
-  let last = performance.now();
-  const render = () => renderer.render(scene, camera);
-  const tick = (now: number) => {
-    raf = 0;
-    const dt = Math.min(0.05, (now - last) / 1000);
-    last = now;
-    if (playing) {
-      sim.step(dt);
-      hud.clock(sim.time);
-      // ease the camera back while the operator is in the cell so a 1.8 m person fits the frame
-      const goal = sim.operatorInCell ? 1.3 : 1;
-      if (Math.abs(goal - zoom) > 1e-3) { zoom += (goal - zoom) * Math.min(1, dt * 1.6); frame(); }
+  // apply one physics frame to the scene
+  const stack = cell.stack;
+  const apply = (s: Float32Array) => {
+    cell.setJoints(s.subarray(S.q, S.q + 6));
+    cell.beltTex.offset.x = -s[S.beltOffset] / 0.12;
+    cell.eyeBeam.color.set(s[S.beam] ? '#30d158' : '#ff3b30');
+    cell.beacon.emissive.set(s[S.beacon] ? '#ffb000' : '#000000');
+    cell.beacon.emissiveIntensity = s[S.beacon] ? 2.2 : 0;
+    const field = s[S.field], pulse = 0.5 + 0.5 * Math.sin(s[S.time] * 9), z = cell.zones;
+    z.warn.opacity = field >= 1 ? 0.75 + 0.25 * pulse : 0.5;
+    z.stop.opacity = field === 2 ? 0.75 + 0.25 * pulse : 0.45;
+    z.warnFill.opacity = field === 1 ? 0.1 : 0;
+    z.stopFill.opacity = field === 2 ? 0.12 : 0;
+    const a = s[S.scan];
+    cell.scan.root.visible = a > 0;
+    cell.scan.mats[0].opacity = 0.16 * a;
+    cell.scan.mats[1].opacity = 0.8 * a;
+    const u = s[S.puff];
+    cell.puff.root.visible = u >= 0 && u < 1;
+    if (u >= 0) {
+      cell.puff.mat.opacity = 0.85 * (1 - u);
+      for (const p of cell.puff.root.children) {
+        const [dx, dz] = p.userData.dir as [number, number];
+        const r = 0.03 + 0.07 * u;
+        p.position.set(dx * r, 0.01 * u, dz * r);
+        p.scale.setScalar(1 + u * 1.5);
+      }
     }
-    render();
-    schedule();
+    cell.pallet.position.set(s[S.pallet], s[S.pallet + 1], s[S.pallet + 2]);
+    const P = cell.person, o = S.person;
+    P.root.visible = s[o] > 0;
+    if (P.root.visible) {
+      P.root.position.set(s[o + 1], FLOOR_Y, s[o + 2]);
+      P.root.rotation.y = s[o + 3];
+      P.pose(s[o + 4], s[o + 5], s[o + 6], s[o + 7]);
+    }
+    const exiting: Object3D[] = [];
+    for (let i = 0; i < POOL; i++) {
+      const k = S.boxes + i * S.stride, b = boxes[i];
+      b.visible = s[k + 7] > 0;
+      if (!b.visible) continue;
+      b.position.set(s[k], s[k + 1], s[k + 2]);
+      b.quaternion.set(s[k + 3], s[k + 4], s[k + 5], s[k + 6]);
+      if (s[k + 8] > 0) exiting.push(b);
+    }
+    const fade = s[S.fade];
+    fader.set(fade < 0.999 ? [...exiting, cell.pallet] : [], fade);
   };
-  const schedule = () => {
-    if (!raf && playing && visible && !document.hidden) {
-      last = performance.now();
-      raf = requestAnimationFrame(tick);
+  const handle = (events: HudEvent[], time: number) => {
+    for (const e of events) {
+      switch (e.k) {
+        case 'log': hud.log(e.t, e.text, e.tone); break;
+        case 'edge': hud.edge(e.t, e.n, e.detail); break;
+        case 'reset': hud.resetEdges(); break;
+        case 'stats': hud.stats(e.s); break;
+        case 'tool': hud.tool(e.vac, e.payload, e.speed); break;
+        case 'kind': styleBox(boxes[e.i], { sku: e.sku, damaged: e.damaged }); break;
+        case 'status': {
+          hud.status(e.label, e.tone);
+          const [red, amber, green] = stack;
+          red.emissiveIntensity = e.tone === 'stop' ? 2.4 : 0;
+          amber.emissiveIntensity = e.tone === 'hold' ? 2.4 : 0;
+          green.emissiveIntensity = e.tone === 'run' ? 2.0 : 0;
+          break;
+        }
+      }
     }
+    hud.clock(time);
   };
 
-  if (opts.reduced) {
-    // a still: run the script ahead to the operator in the cell, then draw one frame
-    for (let i = 0; i < 60 * 90 && !sim.personPlacing; i++) sim.step(1 / 60);
-    for (let i = 0; i < 18; i++) sim.step(1 / 60);
-    hud.clock(sim.time);
-    zoom = 1.3;
+  let state: Float32Array;
+  try {
+    state = await first;
+  } catch (err) {
+    worker.terminate();
+    throw err;
   }
+  handle(pendingEvents, state[S.time]);
+  pendingEvents = [];
+  apply(state);
+  if (state[S.person] > 0) zoom = 1.3;
 
   view.prepend(canvas);
   frame();
   render();
   root.classList.add('is-loaded');
 
-  new ResizeObserver(() => { frame(); if (!playing) render(); }).observe(view);
+  // loop: one physics request per animation frame, and the next only once the last has come back
+  let playing = !opts.reduced;
+  let visible = true;
+  let raf = 0;
+  let waiting = false;
+  let last = performance.now();
+  onFrame = (s, events) => {
+    waiting = false;
+    cell.ambient(Math.max(0, Math.min(0.1, s[S.time] - state[S.time])));   // the neighbouring line keeps running
+    state = s;
+    handle(events, s[S.time]);
+    pendingEvents = [];
+    apply(s);
+    const goal = s[S.person] > 0 ? 1.3 : 1;      // pull back while the operator is in the cell so they fit
+    if (Math.abs(goal - zoom) > 1e-3) { zoom += (goal - zoom) * 0.03; frame(); }
+    render();
+    schedule();
+  };
+  const tick = (now: number) => {
+    raf = 0;
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    if (playing && !waiting) { waiting = true; worker.postMessage({ type: 'step', dt }); }
+  };
+  const schedule = () => {
+    if (!raf && playing && visible && !document.hidden && !waiting) raf = requestAnimationFrame(tick);
+  };
+  const resume = () => { last = performance.now(); schedule(); };
+
+  new ResizeObserver(() => { frame(); render(); }).observe(view);
   new IntersectionObserver((e) => {
     visible = e.some((x) => x.isIntersecting);
-    if (visible) schedule();
+    if (visible) resume();
   }).observe(view);
-  document.addEventListener('visibilitychange', schedule);
+  document.addEventListener('visibilitychange', resume);
 
   let dragX: number | null = null;
   let orbit0 = 0;
@@ -219,15 +369,15 @@ export async function mountTwin(root: HTMLElement, opts: TwinOptions) {
   view.addEventListener('pointercancel', end);
 
   if (import.meta.env.DEV) {
-    // dev only: jump the script ahead to inspect a given moment
+    // dev only: jump the physics ahead, or move the camera, to inspect a moment
     Object.assign(window, { __twin: {
-      sim,
-      seek(sec: number) { for (let t = 0; t < sec; t += 1 / 60) sim.step(1 / 60); hud.clock(sim.time); render(); },
+      seek(sec: number) { worker.postMessage({ type: 'seek', sec }); },
       look(o: { x?: number; y?: number; z?: number; zoom?: number; orbit?: number; el?: number; az?: number }) {
         target.set(o.x ?? target.x, o.y ?? target.y, o.z ?? target.z);
         base.el = o.el ?? base.el; base.az = o.az ?? base.az;
         zoom = o.zoom ?? zoom; orbit = o.orbit ?? orbit; frame(); render();
       },
+      get time() { return state[S.time]; },
     } });
   }
   const sync = () => { toggle.textContent = playing ? 'Pause' : 'Play'; };
@@ -236,7 +386,7 @@ export async function mountTwin(root: HTMLElement, opts: TwinOptions) {
   toggle.addEventListener('click', () => {
     playing = !playing;
     sync();
-    schedule();
+    resume();
   });
-  schedule();
+  resume();
 }

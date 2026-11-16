@@ -1,13 +1,13 @@
 ---
 import { asset } from '../lib/url';
-import { CASES } from '../scripts/twin/cases';
+import { CASES } from '../scripts/twin/cases.ts';
 ---
 <section class="section" id="twin" aria-labelledby="twin-title">
   <div class="container">
     <header class="section__head reveal">
       <p class="eyebrow">Digital twin</p>
       <h2 id="twin-title">Proven in simulation <span class="accent">before your robot moves.</span></h2>
-      <p class="lead">A UR5e palletizes an infeed line in a simulated copy of the cell. Every loop it meets ten things that go wrong on real floors, detects each one with a check, and recovers on its own.</p>
+      <p class="lead">A UR5e palletizes an infeed line in a physics simulation of the cell, running live in your browser. Every loop it meets ten things that go wrong on real floors, detects each one with a check, and recovers on its own.</p>
     </header>
 
     <figure class="twin__stage reveal" data-model={asset('models/ur5e.glb')}>
@@ -15,7 +15,7 @@ import { CASES } from '../scripts/twin/cases';
         <div class="twin__loading" aria-hidden="true"><span></span></div>
         <div class="twin__top">
           <p class="twin__status" data-tone="run"><span class="twin__lamp" aria-hidden="true"></span><span class="twin__status-text">Loading simulation</span></p>
-          <p class="twin__clock" aria-hidden="true">SIM · CELL 01</p>
+          <p class="twin__clock" aria-hidden="true">MuJoCo · 500 Hz</p>
           <button class="twin__toggle" type="button" hidden>Pause</button>
         </div>
         <div class="twin__banner" hidden>
@@ -23,7 +23,7 @@ import { CASES } from '../scripts/twin/cases';
           <p class="twin__banner-title"></p>
           <p class="twin__banner-detail"></p>
         </div>
-        <p class="twin__fallback" hidden>The 3D twin needs WebGL. The ten cases it runs are listed below.</p>
+        <p class="twin__fallback" hidden>The simulation needs WebGL and WebAssembly. The ten cases it runs are listed below.</p>
       </div>
       <div class="twin__console">
         <dl class="twin__stats">
@@ -38,8 +38,10 @@ import { CASES } from '../scripts/twin/cases';
         <div class="twin__log" role="log" aria-live="off" aria-label="Cell event log"></div>
       </div>
       <figcaption>
-        Scripted twin: case names follow the RuRobotics failure taxonomy. Drag sideways to look around.
-        UR5e model from <a href="https://github.com/google-deepmind/mujoco_menagerie" target="_blank" rel="noopener">MuJoCo Menagerie</a>
+        Live physics: the arm's servos, the vacuum grip and every carton's mass and friction are simulated
+        in <a href="https://github.com/google-deepmind/mujoco" target="_blank" rel="noopener">MuJoCo</a> (Apache-2.0) at 500 Hz.
+        The cases are scripted; how each one plays out is not. Case names follow the RuRobotics failure taxonomy. Drag sideways to look around.
+        UR5e model and dynamics from <a href="https://github.com/google-deepmind/mujoco_menagerie" target="_blank" rel="noopener">MuJoCo Menagerie</a>
         (<a href={asset('models/LICENSE-ur5e.txt')}>BSD-3</a>).
       </figcaption>
     </figure>
