@@ -1,0 +1,20 @@
+---
+import Icon from './Icon.astro';
+import type { Person } from '../data/site';
+interface Props { person: Person }
+const { person } = Astro.props;
+---
+<li class="person">
+  <span class="person__mono" aria-hidden="true">{person.initials}</span>
+  <div class="person__body">
+    <h4 class="person__name">
+      {person.linkedin ? (
+        <a class="person__link" href={person.linkedin} target="_blank" rel="noopener">
+          {person.name}<Icon name="linkedin" size={16} /><span class="visually-hidden"> on LinkedIn (opens in a new tab)</span>
+        </a>
+      ) : person.name}
+    </h4>
+    <p class="person__role">{person.role}</p>
+    <ul class="person__creds">{person.creds.map((c) => <li>{c}</li>)}</ul>
+  </div>
+</li>

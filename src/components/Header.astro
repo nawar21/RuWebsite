@@ -1,0 +1,23 @@
+---
+import { NAV } from '../data/site';
+import { asset } from '../lib/url';
+---
+<a class="announce" href="#nyc">
+  <span class="announce__tag">New</span>
+  <span>RuRobotics is coming to New York. Now booking factory pilots in NY &amp; NJ</span>
+  <span class="announce__arrow" aria-hidden="true">Learn more ›</span>
+</a>
+
+<header class="nav">
+  <div class="container nav__inner">
+    <a class="nav__brand" href="#top" aria-label="RuRobotics home">
+      <img src={asset('assets/logo-mark-dark.png')} alt="" width="56" height="32" />
+      <img class="nav__wordmark" src={asset('assets/logo-wordmark-dark.png')} alt="RuRobotics" width="125" height="18" />
+    </a>
+    <nav aria-label="Primary">
+      <ul class="nav__links">
+        {NAV.map((l) => <li><a href={l.href} data-nav={l.href.slice(1)}>{l.label}</a></li>)}
+      </ul>
+    </nav>
+  </div>
+</header>

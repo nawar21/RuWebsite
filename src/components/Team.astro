@@ -1,0 +1,30 @@
+---
+import { Image } from 'astro:assets';
+import PersonCard from './Person.astro';
+import { CORE_TEAM, ADVISORS } from '../data/site';
+import teaching from '../assets/photos/team-teaching-ur5.jpg';
+---
+<section class="section" id="team" aria-labelledby="team-title">
+  <div class="container">
+    <div class="section__head reveal">
+      <p class="eyebrow">Team</p>
+      <h2 id="team-title">One of us builds the AI. One of us has wired the factories.</h2>
+      <p class="lead team__tagline">Technion robotics research, five years of PLC on real production lines, and a Mobileye algorithms lead.</p>
+    </div>
+    <div class="team">
+      <figure class="team__media reveal">
+        <Image src={teaching} alt="Three RuRobotics team members teaching a UR5 cobot using the teach pendant" widths={[480, 960]} sizes="(min-width: 1000px) 420px, 100vw" />
+      </figure>
+      <div class="team__groups">
+        <div class="team__group reveal">
+          <h3 class="team__label">Core team</h3>
+          <ul class="people people--core">{CORE_TEAM.map((p) => <PersonCard person={p} />)}</ul>
+        </div>
+        <div class="team__group reveal">
+          <h3 class="team__label">Advisors</h3>
+          <ul class="people people--advisors">{ADVISORS.map((p) => <PersonCard person={p} />)}</ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

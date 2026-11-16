@@ -1,0 +1,53 @@
+---
+import { Image } from 'astro:assets';
+import Icon from './Icon.astro';
+import { SITE } from '../data/site';
+import workcell from '../assets/photos/ur5-lab-workcell.jpg';
+---
+<section class="hero" id="top">
+  <div class="container hero__grid">
+    <div class="hero__copy">
+      <p class="eyebrow" data-hero>Physical AI for industrial robots</p>
+      <h1 data-hero>Your factory already has robots. <span class="accent">We make them think.</span></h1>
+      <p class="lead" data-hero>The physical AI brain for the robots you already own. Robots as a service, per mission — on your UR, KUKA or FANUC. Nothing new to buy.</p>
+      <div class="btn-row" data-hero>
+        <a class="btn btn--primary" href="#video"><Icon name="play" /> Watch the video</a>
+        <a class="btn btn--ghost" href="#twin"><Icon name="rotate" /> See the digital twin</a>
+        <a class="btn btn--ghost btn--icon" href={SITE.x} target="_blank" rel="noopener" aria-label="RuRobotics on X">
+          <Icon name="x" size={16} /><span aria-hidden="true">X</span>
+        </a>
+      </div>
+    </div>
+    <figure class="hero__media hud" data-hero-media>
+      <Image
+        src={workcell}
+        alt="UR5 robot arm with a gripper and wrist camera above a desk with laptops running code, one showing a scan of the cell, in a lab with 3D printers"
+        widths={[480, 720, 1200]}
+        sizes="(min-width: 600px) 560px, 100vw"
+        loading="eager"
+        fetchpriority="high"
+      />
+      <div class="hud__layer" aria-hidden="true">
+        <span class="hud__corner hud__corner--tl"></span>
+        <span class="hud__corner hud__corner--tr"></span>
+        <span class="hud__corner hud__corner--bl"></span>
+        <span class="hud__corner hud__corner--br"></span>
+        <span class="hud__scan"></span>
+        <span class="hud__readout">UR5e · Haifa lab</span>
+        <!-- Leader lines drawn in image pixel space (image is exactly 4:5, shown uncropped) -->
+        <svg class="hud__lines" viewBox="0 0 1200 1500" preserveAspectRatio="none">
+          <polyline points="770,258 640,340 540,340" />
+          <polyline points="866,268 960,380 960,392" />
+          <polyline points="150,860 250,720 330,720" />
+        </svg>
+        <span class="hud__dot" style="left:64.2%;top:17.2%"></span>
+        <span class="hud__dot" style="left:72.2%;top:17.9%;animation-delay:.8s"></span>
+        <span class="hud__dot" style="left:12.5%;top:57.3%;animation-delay:1.6s"></span>
+        <span class="hud__label hud__label--left" style="left:45%;top:22.67%">Gripper</span>
+        <span class="hud__label hud__label--below" style="left:80%;top:26.1%">Wrist camera</span>
+        <span class="hud__label hud__label--right" style="left:27.5%;top:48%">Mission plan → simulation</span>
+      </div>
+      <figcaption>Our UR5e in the Haifa lab</figcaption>
+    </figure>
+  </div>
+</section>

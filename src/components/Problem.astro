@@ -1,0 +1,20 @@
+---
+import { PROBLEMS } from '../data/site';
+---
+<section class="section" id="problem">
+  <div class="container">
+    <div class="section__head reveal">
+      <p class="eyebrow">The problem</p>
+      <h2>Every factory tells the same robot story.</h2>
+    </div>
+    <div class="cards cards--3">
+      {PROBLEMS.map((p, i) => (
+        <article class="card reveal">
+          <span class="card__num">{String(i + 1).padStart(2, '0')}</span>
+          <h3>{p.title}</h3>
+          <p>{p.body}</p>
+        </article>
+      ))}
+    </div>
+  </div>
+</section>

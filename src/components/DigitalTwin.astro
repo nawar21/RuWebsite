@@ -1,0 +1,86 @@
+---
+import { asset } from '../lib/url';
+---
+<section class="section" id="twin" aria-labelledby="twin-title">
+  <div class="container">
+    <div class="twin">
+      <div class="twin__copy reveal">
+        <p class="eyebrow">Digital twin</p>
+        <h2 id="twin-title">Proven in simulation <span class="accent">before your robot moves.</span></h2>
+        <p class="lead">Every mission is planned and tested on a simulated copy of the cell first. When it runs on your line, it has already run here.</p>
+        <ul class="twin__points">
+          <li><strong>Same kinematics</strong> as the arm on your floor</li>
+          <li><strong>No downtime</strong> while the mission is planned</li>
+          <li><strong>Drag to look around.</strong> This is a UR5e running a pick-and-place loop.</li>
+        </ul>
+      </div>
+      <figure class="twin__stage reveal">
+        <model-viewer
+          data-src={asset('models/ur5e.glb')}
+          alt="3D model of a UR5e robot arm running a pick-and-place motion"
+          camera-controls
+          disable-zoom
+          touch-action="pan-y"
+          interaction-prompt="none"
+          animation-name="PickAndPlace"
+          shadow-intensity="1"
+          shadow-softness="0.8"
+          exposure="1.05"
+          environment-image="neutral"
+          camera-orbit="35deg 72deg 2.1m"
+          field-of-view="28deg"
+          camera-target="0m 0.42m 0m"
+          min-camera-orbit="auto 20deg auto"
+          max-camera-orbit="auto 95deg auto"
+        >
+          <div class="twin__loading" slot="poster" aria-hidden="true"><span></span></div>
+        </model-viewer>
+        <span class="hud__readout twin__readout" aria-hidden="true">SIM · UR5e · 6 DOF</span>
+        <button class="twin__toggle" type="button" aria-pressed="false" hidden>Pause motion</button>
+        <figcaption>
+          UR5e model from <a href="https://github.com/google-deepmind/mujoco_menagerie" target="_blank" rel="noopener">MuJoCo Menagerie</a>
+          (<a href={asset('models/LICENSE-ur5e.txt')}>BSD-3</a>)
+        </figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<script>
+  // Load model-viewer (three.js, ~1 MB) only when the section is about to scroll into view.
+  const viewer = document.querySelector<HTMLElement & { play?: () => void; pause?: () => void; paused?: boolean }>('#twin model-viewer');
+  const toggle = document.querySelector<HTMLButtonElement>('.twin__toggle');
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  if (viewer) {
+    const load = async () => {
+      await import('@google/model-viewer');
+      viewer.setAttribute('src', viewer.dataset.src!);
+      if (!reduce) viewer.setAttribute('autoplay', '');
+      viewer.addEventListener('load', () => {
+        viewer.classList.add('is-loaded');
+        if (toggle) {
+          toggle.hidden = false;
+          const sync = () => {
+            const paused = viewer.paused !== false;
+            toggle.textContent = paused ? 'Play motion' : 'Pause motion';
+            toggle.setAttribute('aria-pressed', String(paused));
+          };
+          sync();
+          toggle.addEventListener('click', () => {
+            viewer.paused ? viewer.play?.() : viewer.pause?.();
+            sync();
+          });
+        }
+      }, { once: true });
+    };
+    if ('IntersectionObserver' in window) {
+      const io = new IntersectionObserver((entries) => {
+        if (entries.some((e) => e.isIntersecting)) { io.disconnect(); load(); }
+      }, { rootMargin: '600px 0px' });
+      io.observe(viewer);
+    } else {
+      load();
+    }
+  }
+</script>

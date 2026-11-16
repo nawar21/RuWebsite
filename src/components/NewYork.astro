@@ -1,0 +1,21 @@
+---
+import { NYC_FACTS } from '../data/site';
+---
+<section class="section section--tight" id="nyc" aria-labelledby="nyc-title">
+  <div class="container">
+    <div class="nyc reveal">
+      <div>
+        <p class="eyebrow">RuRobotics / New York 2026</p>
+        <h2 id="nyc-title">Bringing physical AI <span class="accent">to New York factories.</span></h2>
+        <p class="lead">We’re expanding to work with manufacturers across New York and New Jersey. From plastics to packaging and food, we’re looking for high-mix production tasks where the robots you already own can learn new jobs in days.</p>
+        <div class="btn-row">
+          <a class="btn btn--primary" href="#contact">Discuss a factory pilot</a>
+          <a class="btn btn--ghost" href="#how">How it works</a>
+        </div>
+      </div>
+      <ul class="nyc__list" aria-label="New York expansion">
+        {NYC_FACTS.map((f) => <li><span class="nyc__k">{f.k}</span><strong>{f.v}</strong></li>)}
+      </ul>
+    </div>
+  </div>
+</section>

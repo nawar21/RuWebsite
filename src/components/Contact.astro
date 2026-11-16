@@ -1,0 +1,19 @@
+---
+import Icon from './Icon.astro';
+import { SITE } from '../data/site';
+---
+<section class="section" id="contact">
+  <div class="container">
+    <div class="contact reveal">
+      <p class="eyebrow">Contact</p>
+      <h2>Let’s put your robot to work.</h2>
+      <p class="contact__note">Haifa lab · Now expanding to New York &amp; New Jersey</p>
+      <p class="lead">Email <a href={`mailto:${SITE.email}`}>{SITE.email}</a>, or reach out on LinkedIn and X.</p>
+      <div class="btn-row btn-row--center">
+        <a class="btn btn--primary" href={SITE.linkedin} target="_blank" rel="noopener"><Icon name="linkedin" /> LinkedIn</a>
+        <a class="btn btn--ghost btn--icon" href={SITE.x} target="_blank" rel="noopener" aria-label="RuRobotics on X"><Icon name="x" size={16} /><span aria-hidden="true">X</span></a>
+        <a class="btn btn--ghost" href={SITE.github} target="_blank" rel="noopener"><Icon name="github" /> GitHub</a>
+      </div>
+    </div>
+  </div>
+</section>
