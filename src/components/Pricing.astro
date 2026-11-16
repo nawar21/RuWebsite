@@ -1,0 +1,20 @@
+---
+import { PRICING } from '../data/site';
+---
+<section class="section section--tight" id="pricing">
+  <div class="container">
+    <div class="section__head reveal">
+      <p class="eyebrow">Pricing</p>
+      <h2>Robots as a service. <span class="accent">Paid per mission.</span></h2>
+    </div>
+    <div class="cards cards--3">
+      {PRICING.map((p) => (
+        <article class="card card--stat reveal">
+          <h3>{p.title}</h3>
+          <div class="stats"><div><span class="stat">{p.stat}</span><span class="stat__label">{p.unit}</span></div></div>
+          <p>{p.body}</p>
+        </article>
+      ))}
+    </div>
+  </div>
+</section>

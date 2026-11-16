@@ -1,0 +1,16 @@
+---
+import { asset } from '../lib/url';
+---
+<section class="section section--tight" id="video">
+  <div class="container">
+    <div class="section__head reveal">
+      <p class="eyebrow">Watch</p>
+      <h2>See RuRobotics in action</h2>
+    </div>
+    <div class="video-frame reveal">
+      <video controls playsinline preload="none" poster={asset('assets/video-poster.jpg')} src={asset('assets/rurobotics-promo.mp4')}>
+        Your browser does not support embedded video. <a href={asset('assets/rurobotics-promo.mp4')}>Download the video</a>.
+      </video>
+    </div>
+  </div>
+</section>

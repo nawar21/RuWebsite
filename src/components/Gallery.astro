@@ -1,0 +1,30 @@
+---
+import { Image } from 'astro:assets';
+import baxter from '../assets/photos/baxter-lab.jpg';
+import motoman from '../assets/photos/motoman-ur5-lab.jpg';
+import packing from '../assets/photos/packing-line.jpg';
+import bakery from '../assets/photos/bakery-line.jpg';
+
+const photos = [
+  { src: baxter, alt: 'Red Baxter dual-arm robot in the lab', caption: 'Dual-arm Baxter in the lab' },
+  { src: motoman, alt: 'Blue Yaskawa Motoman industrial arm beside a UR5 cobot in the lab', caption: 'Yaskawa Motoman + UR5' },
+  { src: packing, alt: 'Factory packing line with stacked cardboard boxes and packaging machinery', caption: 'Packing line' },
+  { src: bakery, alt: 'Food factory floor with a bakery production line and workers at a conveyor (faces blurred)', caption: 'High-mix food production', wide: true },
+];
+---
+<section class="section section--tight" id="gallery" aria-labelledby="gallery-title">
+  <div class="container">
+    <div class="section__head reveal">
+      <p class="eyebrow">Lab to floor</p>
+      <h2 id="gallery-title">From our lab to your floor</h2>
+    </div>
+  </div>
+  <div class="gallery" tabindex="0" aria-label="Photo gallery" data-lenis-prevent-horizontal>
+    {photos.map((p) => (
+      <figure class={p.wide ? 'gallery__wide' : undefined}>
+        <Image src={p.src} alt={p.alt} widths={p.wide ? [640, 1280] : [480, 960]} sizes={p.wide ? '(min-width: 900px) 640px, 85vw' : '(min-width: 900px) 360px, 70vw'} />
+        <figcaption>{p.caption}</figcaption>
+      </figure>
+    ))}
+  </div>
+</section>

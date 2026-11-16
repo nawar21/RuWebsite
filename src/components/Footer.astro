@@ -1,0 +1,19 @@
+---
+import Icon from './Icon.astro';
+import { SITE } from '../data/site';
+import { asset } from '../lib/url';
+---
+<footer class="footer">
+  <div class="container footer__inner">
+    <a class="nav__brand" href="#top" aria-label="Back to top">
+      <img src={asset('assets/logo-mark-dark.png')} alt="" width="56" height="32" />
+      <img class="nav__wordmark" src={asset('assets/logo-wordmark-dark.png')} alt="RuRobotics" width="125" height="18" />
+    </a>
+    <ul class="footer__social" aria-label="RuRobotics elsewhere">
+      <li><a href={SITE.linkedin} target="_blank" rel="noopener" aria-label="Nawar Sgier on LinkedIn"><Icon name="linkedin" /></a></li>
+      <li><a href={SITE.x} target="_blank" rel="noopener" aria-label="RuRobotics on X"><Icon name="x" size={16} /></a></li>
+      <li><a href={SITE.github} target="_blank" rel="noopener" aria-label="RuRobotics on GitHub"><Icon name="github" /></a></li>
+    </ul>
+    <p>© {new Date().getFullYear()} RuRobotics</p>
+  </div>
+</footer>

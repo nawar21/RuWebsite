@@ -1,0 +1,35 @@
+---
+import { Image } from 'astro:assets';
+import { CUSTOMERS } from '../data/site';
+import programming from '../assets/photos/team-programming-ur5.jpg';
+import cart from '../assets/photos/ur5-mobile-cart.jpg';
+---
+<section class="section" id="customers">
+  <div class="container">
+    <div class="section__head reveal">
+      <p class="eyebrow">Customers</p>
+      <h2>Three factories said yes. <span class="accent">Pilots next.</span></h2>
+    </div>
+    <div class="cards cards--3">
+      {CUSTOMERS.map((c, i) => (
+        <article class="card reveal">
+          <span class="card__num">{String(i + 1).padStart(2, '0')}</span>
+          <h3>{c.name}</h3>
+          <p>{c.body}</p>
+        </article>
+      ))}
+    </div>
+
+    <div class="pilot reveal">
+      <div class="pilot__copy">
+        <p class="eyebrow">In the lab</p>
+        <h3>Running in Haifa right now</h3>
+        <p>Our own UR5e, our own lab, our own hands. Pick-and-place missions run on it every day — the same missions our customers asked for. Come and see it.</p>
+      </div>
+      <div class="pilot__media">
+        <Image src={programming} alt="Two team members programming a UR5e cobot from a desk with laptops and the teach pendant" widths={[400, 800]} sizes="(min-width: 900px) 300px, 50vw" />
+        <Image src={cart} alt="UR5e cobot mounted on a mobile cart in the Haifa lab" widths={[400, 800]} sizes="(min-width: 900px) 300px, 50vw" />
+      </div>
+    </div>
+  </div>
+</section>

@@ -1,0 +1,17 @@
+---
+import { SOLUTION_CHIPS } from '../data/site';
+---
+<section class="section section--tight" id="solution">
+  <div class="container">
+    <div class="solution reveal">
+      <div>
+        <p class="eyebrow">The solution</p>
+        <h2>We don’t sell you a robot. <span class="accent">We make the one you have smart.</span></h2>
+        <p class="lead">A physical AI brain that runs on the arm you already paid for. Diagnose the mission, prove it in simulation, run it on your line, learn from every mistake.</p>
+      </div>
+      <ul class="chips" aria-label="Key features">
+        {SOLUTION_CHIPS.map((c) => <li class="chip"><strong>{c.value}</strong> {c.label}</li>)}
+      </ul>
+    </div>
+  </div>
+</section>

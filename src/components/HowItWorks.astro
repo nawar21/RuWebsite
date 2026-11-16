@@ -1,0 +1,74 @@
+---
+import Icon from './Icon.astro';
+import { STEPS } from '../data/site';
+
+// Node positions on the loop diagram, in step order (Diagnose, Simulate, Run, Learn).
+const nodes = [
+  { cx: 260, cy: 80, label: { x: 260, y: 36, anchor: 'middle' } },
+  { cx: 380, cy: 200, label: { x: 424, y: 206, anchor: 'start' } },
+  { cx: 260, cy: 320, label: { x: 260, y: 378, anchor: 'middle' } },
+  { cx: 140, cy: 200, label: { x: 96, y: 206, anchor: 'end' } },
+];
+const iconPaths: Record<string, string[]> = {
+  diagnose: ['M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2', 'M15.5 12a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0z'],
+  simulate: ['M12 2 3 7l9 5 9-5-9-5z', 'm3 12 9 5 9-5', 'm3 17 9 5 9-5'],
+  run: ['M20 6 9 17l-5-5'],
+  learn: ['M21 12a9 9 0 1 1-2.64-6.36', 'M21 3v6h-6'],
+};
+---
+<section class="section" id="how">
+  <div class="container">
+    <div class="section__head reveal">
+      <p class="eyebrow">How it works</p>
+      <h2>Diagnose. Then run it.</h2>
+    </div>
+    <div class="how">
+      <figure class="loop reveal">
+        <svg viewBox="0 0 520 400" role="img" aria-labelledby="loop-title">
+          <title id="loop-title">A continuous loop: Diagnose, Simulate, Run, Learn, then back to Diagnose</title>
+          <defs>
+            <marker id="loop-arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M1 1 9 5 1 9" fill="none" stroke="#5CA2FF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            </marker>
+            <radialGradient id="loop-glow" cx="50%" cy="50%" r="50%">
+              <stop offset="0" stop-color="#1A78FA" stop-opacity=".28" />
+              <stop offset="1" stop-color="#1A78FA" stop-opacity="0" />
+            </radialGradient>
+          </defs>
+          <circle cx="260" cy="200" r="96" fill="url(#loop-glow)" />
+          <circle class="loop__ring" cx="260" cy="200" r="120" />
+          <path class="loop__flow" d="M297.1 85.9 A120 120 0 0 1 374.1 162.9" marker-end="url(#loop-arrow)" />
+          <path class="loop__flow" d="M374.1 237.1 A120 120 0 0 1 297.1 314.1" marker-end="url(#loop-arrow)" />
+          <path class="loop__flow" d="M222.9 314.1 A120 120 0 0 1 145.9 237.1" marker-end="url(#loop-arrow)" />
+          <path class="loop__flow" d="M145.9 162.9 A120 120 0 0 1 222.9 85.9" marker-end="url(#loop-arrow)" />
+          <g class="loop__orbit"><circle cx="260" cy="80" r="5" /></g>
+          {STEPS.map((s, i) => (
+            <>
+              <g class={`loop__node loop__node--${i + 1}`} data-loop-node={i}>
+                <circle class="loop__halo" cx={nodes[i].cx} cy={nodes[i].cy} r="30" />
+                <circle class="loop__disc" cx={nodes[i].cx} cy={nodes[i].cy} r="30" />
+                <g transform={`translate(${nodes[i].cx - 14} ${nodes[i].cy - 14}) scale(1.1667)`} class="loop__icon">
+                  {iconPaths[s.icon].map((d) => <path d={d} />)}
+                </g>
+              </g>
+              <text class="loop__label" x={nodes[i].label.x} y={nodes[i].label.y} text-anchor={nodes[i].label.anchor}>{s.title}</text>
+            </>
+          ))}
+          <text class="loop__center" x="260" y="198" text-anchor="middle">Physical AI</text>
+          <text class="loop__sub" x="260" y="222" text-anchor="middle">on your robot</text>
+        </svg>
+      </figure>
+      <ol class="steps">
+        {STEPS.map((s, i) => (
+          <li class="step reveal" data-step={i}>
+            <span class="step__icon" aria-hidden="true"><Icon name={s.icon} size={22} /></span>
+            <span class="step__num">{i + 1}</span>
+            <h3>{s.title}</h3>
+            <p>{s.body}</p>
+          </li>
+        ))}
+      </ol>
+    </div>
+    <p class="punchline reveal">Every mission learned in one factory makes the next one faster.</p>
+  </div>
+</section>

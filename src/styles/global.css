@@ -748,3 +748,85 @@ h3 { font-size: 1.3rem; letter-spacing: -0.02em; }
 @media (min-width: 1000px) { .nyc__list { grid-template-columns: repeat(4, 1fr); } }
 .hero .lead { max-width: 42ch; }
 #solution { padding-top: 0; }
+
+/* =====================================================================
+   v2 (Astro rebuild): Lenis + GSAP motion, digital twin, scroll-linked loop
+   ===================================================================== */
+
+/* Lenis owns smooth scrolling; native smooth scroll would fight it */
+html.lenis, html.lenis body { scroll-behavior: auto; }
+
+/* GSAP animates reveals, so drop the CSS transition it would otherwise fight */
+.has-motion .reveal { transition: none; }
+
+/* Active nav link (set by ScrollTrigger) */
+.nav__links a[aria-current] { color: var(--text); background: rgba(0,0,0,0.05); }
+
+/* Digital twin */
+#twin { background: #fff; }
+.twin { display: grid; gap: 40px; align-items: center; }
+@media (min-width: 960px) { .twin { grid-template-columns: 0.9fr 1.1fr; gap: 64px; } }
+.twin__copy h2 { margin-bottom: 16px; }
+.twin__points { list-style: none; margin: 28px 0 0; padding: 0; display: grid; gap: 12px; }
+.twin__points li {
+  padding: 14px 18px; border-radius: 14px; background: #f5f5f7;
+  color: var(--muted); font-size: 0.98rem;
+}
+.twin__points strong { color: var(--text); font-weight: 600; }
+.twin__stage {
+  position: relative; margin: 0;
+  aspect-ratio: 1 / 1; border-radius: 28px; overflow: hidden;
+  background:
+    radial-gradient(70% 60% at 50% 35%, #ffffff 0%, #eef1f6 70%, #e6eaf1 100%);
+  box-shadow: 0 30px 60px -30px rgba(0,0,0,0.25), inset 0 0 0 1px rgba(0,0,0,0.04);
+}
+.twin__stage::before { /* faint floor grid */
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background-image:
+    linear-gradient(rgba(0,113,227,0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,113,227,0.07) 1px, transparent 1px);
+  background-size: 36px 36px;
+  -webkit-mask-image: radial-gradient(60% 45% at 50% 78%, #000, transparent 75%);
+  mask-image: radial-gradient(60% 45% at 50% 78%, #000, transparent 75%);
+}
+.twin__stage model-viewer {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  background: transparent; --poster-color: transparent;
+  --progress-bar-color: var(--blue);
+}
+.twin__stage model-viewer:focus-visible { outline: 2px solid var(--blue); outline-offset: -4px; border-radius: 28px; }
+.twin__loading { position: absolute; inset: 0; display: grid; place-items: center; }
+.twin__loading span {
+  width: 36px; height: 36px; border-radius: 50%;
+  border: 3px solid rgba(0,113,227,0.18); border-top-color: var(--blue);
+  animation: twin-spin 0.9s linear infinite;
+}
+@keyframes twin-spin { to { transform: rotate(360deg); } }
+.twin__readout { top: 18px; left: 18px; color: #0b3d75; background: rgba(255,255,255,0.8); border-color: rgba(0,113,227,0.3); }
+.twin__toggle {
+  position: absolute; right: 16px; top: 14px; z-index: 2;
+  font: 500 0.8rem var(--font-body); color: var(--text);
+  padding: 6px 12px; border-radius: 999px; cursor: pointer;
+  background: rgba(255,255,255,0.85); border: 1px solid rgba(0,0,0,0.1);
+}
+.twin__toggle:hover { background: #fff; }
+.twin__stage figcaption {
+  position: absolute; left: 0; right: 0; bottom: 12px; text-align: center;
+  font-size: 0.72rem; color: var(--muted); pointer-events: none;
+}
+.twin__stage figcaption a { pointer-events: auto; color: inherit; }
+@media (prefers-reduced-motion: reduce) { .twin__loading span { animation: none; } }
+
+/* How it works: on wide screens the loop stays put while the steps scroll past it */
+@media (min-width: 1000px) {
+  .how { align-items: start; }
+  .loop { position: sticky; top: 140px; }
+  .steps { grid-template-columns: 1fr; gap: 20px; }
+  .step { padding: 32px; }
+}
+.step { transition: transform .3s cubic-bezier(.25,.1,.25,1), box-shadow .3s, background-color .3s; }
+.step.is-active { background: #fff; box-shadow: 0 18px 40px -18px rgba(0,113,227,0.35), inset 0 0 0 1px rgba(0,113,227,0.25); }
+.step.is-active .step__icon { background: var(--blue); color: #fff; }
+.loop__disc, .loop__icon { transition: fill .35s, stroke .35s; }
+.loop__node.is-active .loop__disc { fill: var(--blue); stroke: var(--blue); }
+.loop__node.is-active .loop__icon { stroke: #fff; }
