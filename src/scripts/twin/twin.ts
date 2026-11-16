@@ -95,11 +95,13 @@ function bindHud(root: HTMLElement) {
 }
 
 export async function mountTwin(root: HTMLElement, opts: TwinOptions) {
+  if (root.dataset.mounted) return;
+  root.dataset.mounted = '1';
   const view = root.querySelector<HTMLElement>('.twin__view')!;
   const toggle = root.querySelector<HTMLButtonElement>('.twin__toggle')!;
   const small = matchMedia('(max-width: 700px), (pointer: coarse)').matches;
 
-  const renderer = new WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+  const renderer = new WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, small ? 1.5 : 2));
   renderer.toneMapping = NeutralToneMapping;
   renderer.shadowMap.enabled = true;
@@ -108,7 +110,7 @@ export async function mountTwin(root: HTMLElement, opts: TwinOptions) {
   canvas.className = 'twin__canvas';
   canvas.setAttribute('role', 'img');
   canvas.setAttribute('aria-label',
-    'Simulated palletizing cell: boxes arrive on an infeed conveyor, a UR5e arm with a vacuum cup stacks them on a pallet, with a reject bin, an SKU-B tote and floor-marked safety zones.');
+    'Simulated palletizing cell in a factory hall: boxes arrive on an infeed conveyor, a UR5e arm with a vacuum cup stacks them on a pallet, with a reject bin, an SKU-B tote, perimeter guarding and floor-marked safety zones.');
 
   const cell = await buildCell(opts.modelUrl);
   const { scene } = cell;
@@ -116,8 +118,8 @@ export async function mountTwin(root: HTMLElement, opts: TwinOptions) {
   scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
   scene.environmentIntensity = 0.6;
   pmrem.dispose();
-  scene.add(new HemisphereLight('#ffffff', '#cdd3dc', 0.7));
-  const sun = new DirectionalLight('#ffffff', 2.3);
+  scene.add(new HemisphereLight('#f4f7fb', '#b4b9c0', 0.9));
+  const sun = new DirectionalLight('#fff6ea', 2.4);
   sun.position.set(1.6, 3.4, 2.4);
   sun.target.position.set(0.1, -0.5, 0.1);
   sun.castShadow = true;

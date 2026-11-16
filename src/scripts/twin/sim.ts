@@ -44,8 +44,11 @@ const PLAN: Spec[] = [
 ];
 const SLOTS = 12;
 const READY = new Vector3(BELT.stopX - BOX.L / 2, 0.3, BELT.z);
-const PERSON_FROM = new Vector3(2.35, FLOOR_Y, -1.55);
+const SAFE_Y = 0.14;                          // carry height for transfers (tool lip, m)
+const PERSON_FROM = new Vector3(3.9, FLOOR_Y, -0.82);
 const PERSON_AT = new Vector3(0.96, FLOOR_Y, -0.34);
+const PERSON_TO = new Vector3(4.4, FLOOR_Y, -0.5);
+const PERSON_WAIT = new Vector3(2.0, FLOOR_Y, -0.72);   // just outside the warning field
 
 const ease = (u: number) => u * u * u * (u * (u * 6 - 15) + 10);
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
@@ -144,6 +147,7 @@ export class Sim {
     this.line();
     this.falling(dt);
     this.effects(dt);
+    this.cell.ambient(dt);
     this.robot.next(dt * this.speed);
     this.side = this.side.filter((p) => !p.next(dt).done);
     this.vac += (this.vacTarget - this.vac) * Math.min(1, dt * 14);
@@ -170,11 +174,46 @@ export class Sim {
   }
 
   /** IK for a point-to-point goal; a box is symmetric under a half turn, so take the yaw that turns wrist 3 least. */
-  private solve(p: Vector3, yaw: number) {
-    const a = solveFrom({ p, yaw }, this.q);
-    const b = solveFrom({ p, yaw: yaw + Math.PI }, this.q);
-    const cost = (s: { q: number[]; err: number }) => Math.abs(s.q[5] - this.q[5]) + Math.abs(s.q[0] - this.q[0]) * 0.5 + s.err * 50;
+  private solve(p: Vector3, yaw: number, from: number[] = this.q) {
+    const a = solveFrom({ p, yaw }, from);
+    const b = solveFrom({ p, yaw: yaw + Math.PI }, from);
+    const cost = (s: { q: number[]; err: number }) => Math.abs(s.q[5] - from[5]) + Math.abs(s.q[0] - from[0]) * 0.5 + s.err * 50;
     return cost(a) <= cost(b) ? a.q : b.q;
+  }
+
+  /**
+   * A blended move through via points, like a UR program with blend radii: the arm passes each via point without
+   * stopping and only eases in and out at the ends. Catmull-Rom through the joint-space waypoints, timed by
+   * joint distance.
+   */
+  private *moveP(targets: { p: Vector3; yaw: number }[], scale = 1): Proc {
+    const pts: number[][] = [[...this.q]];
+    for (const tg of targets) pts.push(this.solve(tg.p, tg.yaw, pts[pts.length - 1]));
+    const seg = pts.slice(1).map((q, i) => Math.max(...q.map((v, j) => Math.abs(v - pts[i][j]))) + 1e-6);
+    const D = seg.reduce((a, b) => a + b, 0);
+    const T = clamp(D / 2.6 + 0.35, 0.55, 1.8) / scale;
+    const at = (i: number) => pts[clamp(i, 0, pts.length - 1)];
+    for (let t = 0; t < T;) {
+      t = Math.min(T, t + (yield));
+      let d = ease(t / T) * D, i = 0;
+      while (i < seg.length - 1 && d > seg[i]) { d -= seg[i]; i++; }
+      const u = clamp(d / seg[i], 0, 1), u2 = u * u, u3 = u2 * u;
+      const [p0, p1, p2, p3] = [at(i - 1), at(i), at(i + 1), at(i + 2)];
+      for (let j = 0; j < 6; j++) {
+        this.q[j] = 0.5 * (2 * p1[j] + (-p0[j] + p2[j]) * u + (2 * p0[j] - 5 * p1[j] + 4 * p2[j] - p3[j]) * u2
+          + (-p0[j] + 3 * p1[j] - 3 * p2[j] + p3[j]) * u3);
+      }
+      this.apply();
+    }
+  }
+
+  /** Lift straight up off what was just gripped or placed, then blend into the move to `to`. */
+  private *transfer(to: Vector3, yaw: number, scale = 1): Proc {
+    const up = this.here().add(new Vector3(0, 0.1, 0));
+    const via = [{ p: up, yaw: this.toolYaw() }];
+    // carry high, then come down over the target: nothing is swept low past the base, the stack or a bin rim
+    if (to.y < SAFE_Y) via.push({ p: new Vector3(to.x, SAFE_Y, to.z), yaw });
+    yield* this.moveP([...via, { p: to, yaw }], scale);
   }
 
   private *moveJ(p: Vector3, yaw: number, scale = 1): Proc {
@@ -263,14 +302,15 @@ export class Sim {
     if (spec.edge === 1) this.edge(1, `Yaw measured at ${Math.round(box.yaw / DEG)}° off the guide. Grasp re-planned.`);
     if (spec.edge === 4) this.edge(4, 'Depth shows one corner 18 mm low. Routed to the reject bin.');
     if (spec.edge === 6) this.edge(6, 'Label reads SKU-B on an SKU-A pallet. Routed to the SKU-B tote.');
-    if (spec.edge === 8) this.side.push(this.operator());
 
     yield* this.pick(box, spec.edge === 3, spec.edge === 5);
     if (spec.damaged) yield* this.toBin(box, REJECT, 'rejected');
     else if (spec.sku === 'B') yield* this.toBin(box, TOTE_B, 'sorted');
     else yield* this.toPallet(box, spec.edge === 10);
+    // case 8: the operator heads for the pallet as this part goes down, so they arrive during the next transfer
+    if (spec.edge === 7) this.side.push(this.operator());
     this.slow = 1;
-    yield* this.moveJ(READY, 0);
+    yield* this.transfer(READY, 0);
   }
 
   private *pick(box: Box, noSeal: boolean, slips: boolean): Proc {
@@ -306,7 +346,7 @@ export class Sim {
       this.log('Transfer at 70% speed after the slip', 'info');
       return;
     }
-    yield* this.moveL(top().add(new Vector3(0, 0.14, 0)), null, 0.3);
+    yield* this.moveL(top().add(new Vector3(0, 0.05, 0)), null, 0.2);
   }
 
   private placeYaw(box: Box, target: number) {
@@ -319,7 +359,7 @@ export class Sim {
     let k = this.slotBook.indexOf('empty');
     const yaw = this.placeYaw(box, 0);
     const above = (s: number) => slotPose(s).add(new Vector3(0, 0.13, 0));
-    yield* this.moveJ(above(k), yaw, this.slow);
+    yield* this.transfer(above(k), yaw, this.slow);
     if (this.slotTruth[k]) {
       yield* this.observe();
       this.slotBook[k] = 'occupied';
@@ -347,13 +387,13 @@ export class Sim {
     this.slotBook[k] = 'occupied';
     this.stats.placed++;
     this.publish();
-    yield* this.moveL(at.clone().add(new Vector3(0, 0.12, 0)), null, 0.26);
+    yield* this.moveL(at.clone().add(new Vector3(0, 0.04, 0)), null, 0.16);
     this.log(`#${box.id} placed in slot ${k + 1}, verified`, 'ok');
   }
 
   private *toBin(box: Box, bin: { x: number; z: number; floor: number }, kind: 'rejected' | 'sorted'): Proc {
     const over = new Vector3(bin.x, bin.floor + 0.3, bin.z);
-    yield* this.moveJ(over, this.placeYaw(box, 0), this.slow);
+    yield* this.transfer(over, this.placeYaw(box, 0), this.slow);
     yield* this.moveL(new Vector3(bin.x, bin.floor + 0.2, bin.z), null, 0.28);
     this.vacTarget = 0;
     this.release(box, 'falling');
@@ -435,7 +475,10 @@ export class Sim {
       }
     };
     P.root.position.copy(PERSON_FROM);
-    yield* walk(PERSON_FROM, PERSON_AT, 1.15);
+    yield* walk(PERSON_FROM, PERSON_WAIT, 1.15);
+    // pause at the edge of the cell, then step in once the robot has the next part on the cup
+    for (let t = 0; !(this.held && this.held.spec.edge === 8) && t < 12;) { t += yield; P.pose(phase, 0, 1, 0); }
+    yield* walk(PERSON_WAIT, PERSON_AT, 1.15);
     // hand the box onto the next empty slot, the one the robot is about to use
     const k = this.slotBook.indexOf('empty');
     const at = slotPose(k);
@@ -461,8 +504,8 @@ export class Sim {
     this.log(`Operator put a box in slot ${k + 1} by hand`, 'info');
     for (let t = 0; t < 0.45;) { t = Math.min(0.45, t + (yield)); P.pose(phase, 0, 1 - ease(t / 0.45), 1 - ease(t / 0.45)); }
     this.personPlacing = false;
-    yield* turn(Math.atan2(PERSON_FROM.x - PERSON_AT.x, PERSON_FROM.z - PERSON_AT.z), 0);
-    yield* walk(PERSON_AT, PERSON_FROM, 1.25);
+    yield* turn(Math.atan2(PERSON_TO.x - PERSON_AT.x, PERSON_TO.z - PERSON_AT.z), 0);
+    yield* walk(PERSON_AT, PERSON_TO, 1.25);
     P.root.visible = false;
   }
 
@@ -475,7 +518,7 @@ export class Sim {
         this.edge(8, 'Person in the warning field. Speed scaled to 30%.');
         this.status('REDUCED SPEED · 30%', 'hold');
       } else if (field === 2) {
-        this.log('Protective field: safeguard stop, part held on vacuum', 'edge');
+        this.log(`Protective field: safeguard stop, ${this.held ? 'part held on vacuum' : 'arm holding position'}`, 'edge');
         this.status('SAFEGUARD STOP', 'stop');
       } else if (field === 1) {
         this.log('Protective field clear, resuming at 30%', 'info');
