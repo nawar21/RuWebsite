@@ -5,17 +5,18 @@
 import {
   BoxGeometry, BufferGeometry, CanvasTexture, CapsuleGeometry, CatmullRomCurve3, Color, ConeGeometry, CylinderGeometry, DoubleSide,
   EdgesGeometry, Fog, Group, InstancedMesh, LineBasicMaterial, LineSegments, Material, Matrix4, Mesh,
-  MeshBasicMaterial, MeshStandardMaterial, Object3D, PlaneGeometry, RepeatWrapping, RingGeometry, Scene,
+  MeshBasicMaterial, MeshPhysicalMaterial, MeshStandardMaterial, Object3D, PlaneGeometry, RepeatWrapping, RingGeometry, Scene,
   SphereGeometry, SRGBColorSpace, Texture, TorusGeometry, TubeGeometry, Vector3,
 } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { FLANGE_Y, GLB_HOME, JOINT_NODES, TOOL_LEN, jointQuat } from './kinematics.ts';
+import { dressRobot, greyMap, makeForklift, normalFrom, palletStack } from './look.ts';
 
 // ------------------------------------------------------------------------------------------- layout
 import { BELT, BOX, FLOOR_Y, PALLET, REJECT, TOTE_B, ZONES } from './layout.ts';
 export { BELT, BOX, FLOOR_Y, PALLET, REJECT, TOTE_B, ZONES };
-export const HALL = '#dde1e6';                              // background + fog colour of the hall
+export const HALL = '#c6cbd1';                              // background + fog colour of the hall
 
 const ZERO = [0, 0, 0] as const;
 
@@ -56,7 +57,7 @@ const FONT = '-apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-s
 function concrete() {
   // 512 px = 3 m: light polished concrete with aggregate, trowel clouds and a saw-cut joint on two edges
   return canvas(512, 512, (g) => {
-    g.fillStyle = '#cfd2d6'; g.fillRect(0, 0, 512, 512);
+    g.fillStyle = '#aeb2b7'; g.fillRect(0, 0, 512, 512);
     const r = rng(7);
     for (let i = 0; i < 70; i++) {
       const x = r() * 512, y = r() * 512, rad = 30 + r() * 110;
@@ -198,6 +199,13 @@ function std(color: string | Texture, metalness = 0, roughness = 0.7) {
     : new MeshStandardMaterial({ map: color, metalness, roughness });
 }
 
+/** A standard material whose relief comes from its own colour map (see look.ts normalFrom). */
+function relief(map: Texture, strength: number, roughness: number, normalScale = 1, metalness = 0) {
+  const m = new MeshStandardMaterial({ map, roughness, metalness, normalMap: normalFrom(map, strength) });
+  m.normalScale.setScalar(normalScale);
+  return m;
+}
+
 let shared: ReturnType<typeof makeShared> | null = null;
 function makeShared() {
   return {
@@ -235,10 +243,10 @@ let dentGeo: BufferGeometry | null = null;
 
 function boxMaterials() {
   if (boxMats) return boxMats;
-  const end = std(cardboardSide(false), 0, 0.88);
-  const side = std(cardboardSide(true), 0, 0.88);
+  const end = relief(cardboardSide(false), 3, 0.88, 0.6);
+  const side = relief(cardboardSide(true), 3, 0.88, 0.6);
   const bottom = std('#b88e58', 0, 0.9);
-  const top = (sku: Sku, d = false) => std(cardboardTop(sku, d), 0, 0.82);
+  const top = (sku: Sku, d = false) => relief(cardboardTop(sku, d), 2, 0.8, 0.5);
   const dark = std('#ad824c', 0, 0.9);
   // face order: +x, -x, +y, -y, +z, -z
   boxMats = {
@@ -389,9 +397,26 @@ function hall(scene: Scene): Ambient {
   scene.fog = new Fog(HALL, 4.2, 10.5);
   const m = mats();
 
+  // sealed, polished concrete: clear-coated so the hall's lights streak across it, with relief and worn patches
   const floorTex = concrete();
   floorTex.repeat.set(16 / 3, 12 / 3);
-  const floor = mesh(new PlaneGeometry(16, 12), std(floorTex, 0, 0.62), [0.4, FLOOR_Y, -0.5], false, true);
+  const wear = greyMap(256, (g) => {
+    g.fillStyle = '#7a7a7a'; g.fillRect(0, 0, 256, 256);
+    let seed = 3;
+    const r = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    for (let i = 0; i < 60; i++) {
+      const x = r() * 256, y = r() * 256, rad = 12 + r() * 50, v = r() > 0.5 ? 200 : 70;
+      const grad = g.createRadialGradient(x, y, 0, x, y, rad);
+      grad.addColorStop(0, `rgba(${v},${v},${v},0.5)`); grad.addColorStop(1, `rgba(${v},${v},${v},0)`);
+      g.fillStyle = grad; g.fillRect(x - rad, y - rad, rad * 2, rad * 2);
+    }
+  }, [16 / 3, 12 / 3]);
+  const floorMat = new MeshPhysicalMaterial({
+    map: floorTex, normalMap: normalFrom(floorTex, 1.5), roughness: 0.55, roughnessMap: wear,
+    clearcoat: 0.55, clearcoatRoughness: 0.18,
+  });
+  floorMat.normalScale.setScalar(0.35);
+  const floor = mesh(new PlaneGeometry(16, 12), floorMat, [0.4, FLOOR_Y, -0.5], false, true);
   floor.rotation.x = -Math.PI / 2;
   scene.add(floor);
   // painted aisle in front of the cell
@@ -409,10 +434,10 @@ function hall(scene: Scene): Ambient {
   // back and left walls with steel columns
   const wallTex = wallTexture();
   wallTex.repeat.set(14 / 2, 1);
-  const back = mesh(new PlaneGeometry(14, 5), std(wallTex, 0.1, 0.8), [0.4, FLOOR_Y + 2.5, -3.1], false, true);
+  const back = mesh(new PlaneGeometry(14, 5), relief(wallTex, 6, 0.6, 1, 0.3), [0.4, FLOOR_Y + 2.5, -3.1], false, true);
   scene.add(back);
   const leftTex = wallTexture(); leftTex.repeat.set(8 / 2, 1);
-  const left = mesh(new PlaneGeometry(8, 5), std(leftTex, 0.1, 0.8), [-3.6, FLOOR_Y + 2.5, 0.9], false, true);
+  const left = mesh(new PlaneGeometry(8, 5), relief(leftTex, 6, 0.6, 1, 0.3), [-3.6, FLOOR_Y + 2.5, 0.9], false, true);
   left.rotation.y = Math.PI / 2;
   scene.add(left);
   const column = (x: number, z: number) => {
@@ -431,8 +456,8 @@ function hall(scene: Scene): Ambient {
   // pallet racking along the back wall, loaded
   const upright = std('#2f5d9e', 0.4, 0.45);
   const beam = std('#d9822b', 0.3, 0.5);
-  const load = [stackTexture(21), stackTexture(22), stackTexture(23)].map((t) => std(t, 0, 0.8));
-  const deck = std(woodTexture(4), 0, 0.85);
+  const load = [stackTexture(21), stackTexture(22), stackTexture(23)].map((t) => relief(t, 3, 0.75, 0.7));
+  const deck = relief(woodTexture(4), 3, 0.85, 0.6);
   for (let bay = 0; bay < 4; bay++) {
     const x0 = -3.0 + bay * 1.45;
     for (const x of [x0, x0 + 1.4]) for (const z of [-2.85, -2.05]) scene.add(bx(0.06, 2.6, 0.06, upright, [x, FLOOR_Y + 1.3, z], false));
@@ -573,7 +598,9 @@ export async function buildCell(modelUrl: string): Promise<Cell> {
   const beltTex = beltTexture();
   beltTex.repeat.set(len / 0.12, 1);
   const rub = std('#25272b', 0, 0.8);
-  scene.add(bx(len, 0.02, BELT.width, [rub, rub, std(beltTex, 0, 0.75), rub, rub, rub], [cx, BELT.top - 0.01, BELT.z], false, true));
+  const beltTop = relief(beltTex, 4, 0.7, 0.8);
+  beltTop.normalMap!.offset = beltTex.offset;                // the relief scrolls with the belt
+  scene.add(bx(len, 0.02, BELT.width, [rub, rub, beltTop, rub, rub, rub], [cx, BELT.top - 0.01, BELT.z], false, true));
   for (const s of [-1, 1]) {
     const z = BELT.z + s * (BELT.width / 2 + 0.014);
     scene.add(bx(len + 0.06, 0.08, 0.028, m.alu, [cx, BELT.top - 0.025, z], true, true));
@@ -682,6 +709,36 @@ export async function buildCell(modelUrl: string): Promise<Cell> {
   ]);
   scene.add(mesh(new TubeGeometry(route, 48, 0.009, 6), m.black, ZERO, false));
 
+  dressRobot(robot);
+
+  // keep-clear hazard striping painted round the lift table
+  const stripes = canvas(128, 16, (g) => {
+    g.fillStyle = '#f2c300'; g.fillRect(0, 0, 128, 16);
+    g.fillStyle = '#16181b';
+    for (let x = -16; x < 144; x += 16) { g.beginPath(); g.moveTo(x, 16); g.lineTo(x + 8, 16); g.lineTo(x + 16, 0); g.lineTo(x + 8, 0); g.fill(); }
+  }, true);
+  const tape = (len: number, x: number, z: number, rot: number) => {
+    const t = stripes.clone(); t.repeat.set(len / 0.4, 1); t.needsUpdate = true;
+    const m = mesh(new PlaneGeometry(len, 0.05), new MeshStandardMaterial({ map: t, roughness: 0.6 }), [x, FLOOR_Y + 0.0025, z], false, true);
+    m.rotation.set(-Math.PI / 2, 0, rot);
+    scene.add(m);
+  };
+  const tx = PALLET.x + 0.025, tw = 0.82, td = 0.6;
+  tape(tw, tx, PALLET.z - td / 2, 0);
+  tape(tw, tx, PALLET.z + td / 2, 0);
+  tape(td, tx - tw / 2, PALLET.z, Math.PI / 2);
+  tape(td, tx + tw / 2, PALLET.z, Math.PI / 2);
+
+  // warehouse dressing: empty pallets waiting by the station, a forklift parked past the racking
+  const spare = palletStack(relief(woodTexture(7), 3, 0.85, 0.6), 6);
+  spare.position.set(1.18, FLOOR_Y, 0.78);
+  spare.rotation.y = 0.12;
+  scene.add(spare);
+  const truck = makeForklift();
+  truck.position.set(3.65, FLOOR_Y, -2.35);
+  truck.rotation.y = 0.35;
+  scene.add(truck);
+
   const person = makePerson();
   person.root.visible = false;
   scene.add(person.root);
@@ -699,8 +756,8 @@ export async function buildCell(modelUrl: string): Promise<Cell> {
 }
 
 function makePallet() {
-  const plank = std(woodTexture(1), 0, 0.82);
-  const plank2 = std(woodTexture(2), 0, 0.85);
+  const plank = relief(woodTexture(1), 3, 0.82, 0.6);
+  const plank2 = relief(woodTexture(2), 3, 0.85, 0.6);
   const block = std('#c9a675', 0, 0.9);
   const p = new Group();
   const w = 0.52, d = 0.34;

@@ -2,10 +2,11 @@
 // (physics.worker.ts); this side renders what it reports: the robot's joint angles as MuJoCo integrated them, every
 // carton's pose, the pallet, the operator, and the HUD events. Loaded on demand by DigitalTwin.astro.
 import {
-  DirectionalLight, Group, HalfFloatType, HemisphereLight, Material, Mesh, NeutralToneMapping, PCFShadowMap,
-  PerspectiveCamera, PMREMGenerator, Vector3, WebGLRenderTarget, WebGLRenderer, type Object3D,
+  ACESFilmicToneMapping, AgXToneMapping, DirectionalLight, Group, HalfFloatType, HemisphereLight, Material, Mesh,
+  NeutralToneMapping, PerspectiveCamera, PMREMGenerator, Vector2, Vector3, VSMShadowMap, WebGLRenderTarget,
+  WebGLRenderer, type Object3D, type ToneMapping,
 } from 'three';
-import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
@@ -13,6 +14,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { CASES } from './cases.ts';
 import { FLOOR_Y, POOL } from './layout.ts';
 import { S, type HudEvent, type Stats, type Tone } from './protocol.ts';
+import { factoryEnvironment } from './look.ts';
 import { buildCell, makeBox, styleBox } from './world.ts';
 
 export interface TwinOptions { modelUrl: string; reduced: boolean }
@@ -149,10 +151,10 @@ export async function mountTwin(root: HTMLElement, opts: TwinOptions) {
 
   const renderer = new WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, small ? 1.5 : 2));
-  renderer.toneMapping = NeutralToneMapping;
-  renderer.toneMappingExposure = 1.05;
+  renderer.toneMapping = ACESFilmicToneMapping;           // the filmic contrast of an RTX viewport
+  renderer.toneMappingExposure = 1.0;
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = PCFShadowMap;
+  renderer.shadowMap.type = VSMShadowMap;                   // soft, area-light-like shadow edges
   const canvas = renderer.domElement;
   canvas.className = 'twin__canvas';
   canvas.setAttribute('role', 'img');
@@ -161,20 +163,23 @@ export async function mountTwin(root: HTMLElement, opts: TwinOptions) {
 
   const cell = await buildCell(opts.modelUrl);
   const { scene } = cell;
+  // image-based light from an HDR factory hall (high-bay LED rows, a daylight band), as Isaac Sim lights with a dome
   const pmrem = new PMREMGenerator(renderer);
-  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-  scene.environmentIntensity = 0.6;
+  scene.environment = pmrem.fromScene(factoryEnvironment(), 0.02).texture;
+  scene.environmentIntensity = 0.8;
   pmrem.dispose();
-  scene.add(new HemisphereLight('#f4f7fb', '#b4b9c0', 0.9));
-  const sun = new DirectionalLight('#fff6ea', 2.4);
-  sun.position.set(1.6, 3.4, 2.4);
+  scene.add(new HemisphereLight('#eef3fa', '#8d939b', 0.35));
+  // the high bay right over the cell: a soft key light, shadows blurred like a large fixture's
+  const sun = new DirectionalLight('#fff3e2', 2.6);
+  sun.position.set(0.9, 4.2, 1.6);
   sun.target.position.set(0.1, -0.5, 0.1);
   sun.castShadow = true;
   sun.shadow.mapSize.setScalar(small ? 1024 : 2048);
-  Object.assign(sun.shadow.camera, { left: -2, right: 2, top: 2, bottom: -2, near: 0.5, far: 8 });
-  sun.shadow.bias = -0.0003;
-  sun.shadow.normalBias = 0.015;
-  sun.shadow.radius = 3;
+  Object.assign(sun.shadow.camera, { left: -2.2, right: 2.2, top: 2.2, bottom: -2.2, near: 0.5, far: 9 });
+  sun.shadow.bias = -0.0004;
+  sun.shadow.normalBias = 0.02;
+  sun.shadow.radius = 7;
+  sun.shadow.blurSamples = 16;
   scene.add(sun, sun.target);
 
   // the carton pool, posed from the physics state
@@ -206,6 +211,8 @@ export async function mountTwin(root: HTMLElement, opts: TwinOptions) {
     gtao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 12 });
     gtao.blendIntensity = 0.9;
     composer.addPass(gtao);
+    // a little bloom on the bright bits: stack light, LED reflections, the photo-eye
+    composer.addPass(new UnrealBloomPass(new Vector2(1, 1), 0.16, 0.35, 0.92));
     composer.addPass(new OutputPass());
   }
 
@@ -378,6 +385,10 @@ export async function mountTwin(root: HTMLElement, opts: TwinOptions) {
         zoom = o.zoom ?? zoom; orbit = o.orbit ?? orbit; frame(); render();
       },
       get time() { return state[S.time]; },
+      tone(kind: 'agx' | 'aces' | 'neutral', exposure = renderer.toneMappingExposure, env = scene.environmentIntensity) {
+        const map: Record<string, ToneMapping> = { agx: AgXToneMapping, aces: ACESFilmicToneMapping, neutral: NeutralToneMapping };
+        renderer.toneMapping = map[kind]; renderer.toneMappingExposure = exposure; scene.environmentIntensity = env; render();
+      },
     } });
   }
   const sync = () => { toggle.textContent = playing ? 'Pause' : 'Play'; };
