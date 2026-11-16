@@ -11,9 +11,8 @@ import cart from '../assets/photos/ur5-mobile-cart.jpg';
       <h2>Three factories said yes. <span class="accent">Pilots next.</span></h2>
     </div>
     <div class="cards cards--3">
-      {CUSTOMERS.map((c, i) => (
+      {CUSTOMERS.map((c) => (
         <article class="card reveal">
-          <span class="card__num">{String(i + 1).padStart(2, '0')}</span>
           <h3>{c.name}</h3>
           <p>{c.body}</p>
         </article>

@@ -803,6 +803,38 @@ h3 { font-size: 1.3rem; letter-spacing: -0.02em; }
 .notfound .lead { margin: 0 auto; }
 .notfound .btn-row { justify-content: center; margin-top: 28px; }
 
+/* ---------- HIG pass: contrast, touch targets, mobile nav ---------- */
+/* Blue as text on gray surfaces: #0071e3 on #f5f5f7 is 4.31:1 (fails AA); #0066cc is 5.1:1 */
+.btn--ghost { color: var(--blue-soft); border-color: var(--blue-soft); }
+.btn--ghost:hover { background: var(--blue-soft); border-color: var(--blue-soft); color: #fff; }
+/* Hero caption over the photo: 45% black gave 3.35:1 over light areas, 60% gives about 5.7:1 */
+.hero__media figcaption { background: rgba(0,0,0,0.6); }
+/* Rows that are comfortable to tap: table of contents 34 px, footer links 29 px */
+.toc ol { gap: 0; }
+.toc a { padding: 6px 0; }
+.footer__links { gap: 0 20px; }
+.footer__links a { display: inline-block; padding: 7px 0; }
+
+/* Touch screens: 44 px targets without moving anything */
+@media (pointer: coarse) {
+  .nav__links a { display: inline-flex; align-items: center; min-height: 44px; }
+  .nav__brand { padding-block: 9px; margin-block: -9px; }
+  .person__link { padding-block: 11px; margin-block: -11px; }
+}
+
+/* Phones: the section links scroll sideways. Fade the right edge so it is clear there are more,
+   and pad the end so the last link can scroll clear of the fade. motion.ts keeps the active one in view. */
+@media (max-width: 767px) {
+  .nav nav {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent);
+  }
+  .nav__inner { height: auto; } /* the Apple layer's fixed 52 px cut the second row out of the frosted bar */
+  .nav__links { padding-right: 40px; }
+  .nav__links a { font-size: 0.86rem; }
+  html { scroll-padding-top: 112px; }
+}
+
 /* Calmer reveal, Apple-like easing */
 .js .reveal { transform: translateY(30px); transition: opacity 1s cubic-bezier(.25,.1,.25,1), transform 1s cubic-bezier(.25,.1,.25,1); }
 /* New York tile: centered promo layout */

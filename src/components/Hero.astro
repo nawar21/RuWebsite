@@ -1,7 +1,6 @@
 ---
 import { Image } from 'astro:assets';
 import Icon from './Icon.astro';
-import { SITE } from '../data/site';
 import workcell from '../assets/photos/ur5-lab-workcell.jpg';
 ---
 <section class="hero" id="top">
@@ -13,9 +12,6 @@ import workcell from '../assets/photos/ur5-lab-workcell.jpg';
       <div class="btn-row" data-hero>
         <a class="btn btn--primary" href="#video"><Icon name="play" /> Watch the video</a>
         <a class="btn btn--ghost" href="#twin"><Icon name="rotate" /> See the digital twin</a>
-        <a class="btn btn--ghost btn--icon" href={SITE.x} target="_blank" rel="noopener" aria-label="RuRobotics on X">
-          <Icon name="x" size={16} /><span aria-hidden="true">X</span>
-        </a>
       </div>
     </div>
     <figure class="hero__media hud" data-hero-media>
