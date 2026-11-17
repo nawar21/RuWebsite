@@ -1,0 +1,30 @@
+---
+// Shell for a legal page: eyebrow, title, dates, a sticky table of contents and the text.
+interface Props {
+  eyebrow: string;
+  title: string;
+  meta: string;
+  toc: { id: string; label: string }[];
+}
+const { eyebrow, title, meta, toc } = Astro.props;
+---
+<section class="page">
+  <div class="container">
+    <div class="page__head">
+      <p class="eyebrow">{eyebrow}</p>
+      <h1>{title}</h1>
+      <p class="page__meta">{meta}</p>
+    </div>
+    <div class="page__grid">
+      <nav class="toc" aria-labelledby="toc-title">
+        <h2 id="toc-title">On this page</h2>
+        <ol>
+          {toc.map((t) => <li><a href={`#${t.id}`}>{t.label}</a></li>)}
+        </ol>
+      </nav>
+      <article class="prose">
+        <slot />
+      </article>
+    </div>
+  </div>
+</section>

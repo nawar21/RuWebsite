@@ -1,0 +1,46 @@
+---
+import Page from '../layouts/Page.astro';
+import LegalPage from '../components/LegalPage.astro';
+import { SITE } from '../data/site';
+
+const mail = `mailto:${SITE.email}`;
+const toc = [
+  { id: 'commitment', label: 'Our commitment' },
+  { id: 'done', label: 'What we have done' },
+  { id: 'known', label: 'Known limitations' },
+  { id: 'feedback', label: 'Tell us if something does not work' },
+];
+---
+<Page
+  title="Accessibility statement — RuRobotics"
+  description="How the RuRobotics website supports screen readers, keyboard use, zoom and reduced motion, what is still missing, and how to tell us about a problem."
+>
+  <LegalPage eyebrow="Accessibility" title="Accessibility statement" meta="Target: WCAG 2.1 AA · Last reviewed 16 November 2026" toc={toc}>
+    <h2 id="commitment">Our commitment</h2>
+    <p>We want everyone to be able to read about what RuRobotics does, including people who use screen readers, keyboards instead of a mouse, magnification, or who are sensitive to motion. This site aims to meet <strong>WCAG 2.1 level AA</strong>, the standard referenced by Israel's service accessibility regulations and by EU and UK law.</p>
+
+    <h2 id="done">What we have done</h2>
+    <ul>
+      <li>Semantic HTML with one logical heading order, landmarks and a skip-to-content link.</li>
+      <li>Every page works with a keyboard alone, with a visible focus indicator.</li>
+      <li>Text and controls meet AA contrast ratios.</li>
+      <li>All photographs have descriptive alternative text; decorative images are hidden from assistive technology.</li>
+      <li>Diagrams drawn as SVG have accessible titles.</li>
+      <li>Scroll animations, the 3D digital twin and the looping factory clip stop moving when your system asks for reduced motion. The twin has its own pause button, and the clip plays muted, only while it is on screen, with player controls to pause it.</li>
+      <li>The layout reflows for phones, tablets and desktop without horizontal scrolling, and text can be zoomed to 200%.</li>
+      <li>No content flashes or autoplays with sound.</li>
+      <li>Every change to the site is checked automatically with Lighthouse, and the build fails if the accessibility score drops below 95.</li>
+    </ul>
+
+    <h2 id="known">Known limitations</h2>
+    <ul>
+      <li>The promotional video does not yet have captions or an audio description. We are producing captions and will publish them here; in the meantime, we will send a text transcript on request.</li>
+      <li>The 3D digital twin is a visual demonstration. Everything it shows is also described in the text beside it.</li>
+      <li>The site is in English only.</li>
+    </ul>
+
+    <h2 id="feedback">Tell us if something does not work</h2>
+    <p>If you have difficulty using any part of this site, email <a href={mail}>{SITE.email}</a> with the page address and what went wrong. We will respond within five working days and fix what we can. If you need information from the site in another format, ask and we will provide it.</p>
+    <p>This statement was last reviewed on 16 November 2026.</p>
+  </LegalPage>
+</Page>

@@ -8,9 +8,8 @@ import { PROBLEMS } from '../data/site';
       <h2>Every factory tells the same robot story.</h2>
     </div>
     <div class="cards cards--3">
-      {PROBLEMS.map((p, i) => (
+      {PROBLEMS.map((p) => (
         <article class="card reveal">
-          <span class="card__num">{String(i + 1).padStart(2, '0')}</span>
           <h3>{p.title}</h3>
           <p>{p.body}</p>
         </article>

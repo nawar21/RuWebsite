@@ -1,6 +1,9 @@
 ---
 import Icon from './Icon.astro';
 import { SITE } from '../data/site';
+import { asset } from '../lib/url';
+
+const mailto = `mailto:${SITE.email}?subject=${encodeURIComponent('RuRobotics – put our robot to work')}`;
 ---
 <section class="section" id="contact">
   <div class="container">
@@ -8,7 +11,8 @@ import { SITE } from '../data/site';
       <p class="eyebrow">Contact</p>
       <h2>Let’s put your robot to work.</h2>
       <p class="contact__note">Haifa lab · Now expanding to New York &amp; New Jersey</p>
-      <p class="lead">Email <a href={`mailto:${SITE.email}`}>{SITE.email}</a>, or reach out on LinkedIn and X.</p>
+      <p class="lead">Email <a href={mailto}>{SITE.email}</a>, or reach out on LinkedIn and X.</p>
+      <p class="contact__meta">We reply within two working days. What you send us is used only to answer you — see our <a href={asset('privacy/')}>privacy policy</a>.</p>
       <div class="btn-row btn-row--center">
         <a class="btn btn--primary" href={SITE.linkedin} target="_blank" rel="noopener"><Icon name="linkedin" /> LinkedIn</a>
         <a class="btn btn--ghost btn--icon" href={SITE.x} target="_blank" rel="noopener" aria-label="RuRobotics on X"><Icon name="x" size={16} /><span aria-hidden="true">X</span></a>

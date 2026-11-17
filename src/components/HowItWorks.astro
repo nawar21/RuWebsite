@@ -62,7 +62,7 @@ const iconPaths: Record<string, string[]> = {
         {STEPS.map((s, i) => (
           <li class="step reveal" data-step={i}>
             <span class="step__icon" aria-hidden="true"><Icon name={s.icon} size={22} /></span>
-            <span class="step__num">{i + 1}</span>
+            <span class="step__num" aria-hidden="true">{i + 1}</span>
             <h3>{s.title}</h3>
             <p>{s.body}</p>
           </li>

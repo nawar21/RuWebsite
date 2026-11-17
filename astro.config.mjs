@@ -13,6 +13,25 @@ export default defineConfig({
   base: process.env.BASE_PATH ?? (onCloudflare ? '/' : '/RuWebsite'),
   trailingSlash: 'ignore',
   build: { inlineStylesheets: 'auto' },
+  // Every page gets a Content Security Policy <meta> tag. Astro hashes its own scripts and
+  // styles; everything else may only load from this site. (frame-ancestors is a header: public/_headers.)
+  security: {
+    csp: {
+      directives: [
+        "default-src 'self'",
+        "img-src 'self' data: blob:",
+        "font-src 'self'",
+        "media-src 'self'",
+        "connect-src 'self' data: blob:",
+        "worker-src 'self' blob:",
+        "object-src 'none'",
+        "base-uri 'self'",
+        "form-action 'self'",
+      ],
+      // The digital twin compiles MuJoCo's WebAssembly physics engine.
+      scriptDirective: { resources: ["'self'", "'wasm-unsafe-eval'"] },
+    },
+  },
   // The digital twin's physics worker imports MuJoCo's ES-module WebAssembly loader, so workers build as ES modules.
   vite: { worker: { format: 'es' } },
 });

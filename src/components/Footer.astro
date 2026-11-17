@@ -1,11 +1,16 @@
 ---
 import Icon from './Icon.astro';
-import { SITE } from '../data/site';
+import { SITE, LEGAL } from '../data/site';
 import { asset } from '../lib/url';
+
+interface Props {
+  home?: boolean;
+}
+const { home = true } = Astro.props;
 ---
 <footer class="footer">
   <div class="container footer__inner">
-    <a class="nav__brand" href="#top" aria-label="Back to top">
+    <a class="nav__brand" href={home ? '#top' : asset('')} aria-label={home ? 'Back to top' : 'RuRobotics home'}>
       <img src={asset('assets/logo-mark-dark.png')} alt="" width="56" height="32" />
       <img class="nav__wordmark" src={asset('assets/logo-wordmark-dark.png')} alt="RuRobotics" width="125" height="18" />
     </a>
@@ -14,6 +19,12 @@ import { asset } from '../lib/url';
       <li><a href={SITE.x} target="_blank" rel="noopener" aria-label="RuRobotics on X"><Icon name="x" size={16} /></a></li>
       <li><a href={SITE.github} target="_blank" rel="noopener" aria-label="RuRobotics on GitHub"><Icon name="github" /></a></li>
     </ul>
-    <p>© {new Date().getFullYear()} RuRobotics</p>
+    <p>© {new Date().getFullYear()} RuRobotics · {SITE.location}</p>
+  </div>
+  <div class="container footer__legal">
+    <ul class="footer__links" aria-label="Legal">
+      {LEGAL.map((l) => <li><a href={asset(l.href)}>{l.label}</a></li>)}
+    </ul>
+    <p class="footer__note">No cookies, no analytics, no trackers. Everything on this site loads from our own domain.</p>
   </div>
 </footer>

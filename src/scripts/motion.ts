@@ -74,6 +74,14 @@ if (reduce) {
 
   // --- Highlight the nav link for the section on screen
   const links = gsap.utils.toArray<HTMLAnchorElement>('[data-nav]');
+  // On phones the link row scrolls sideways: keep the active link centered in it.
+  const revealInNav = (link: HTMLElement) => {
+    const row = link.closest('nav');
+    if (!row || row.scrollWidth <= row.clientWidth) return;
+    const r = link.getBoundingClientRect();
+    const box = row.getBoundingClientRect();
+    row.scrollTo({ left: row.scrollLeft + r.left - box.left - (box.width - r.width) / 2, behavior: 'smooth' });
+  };
   links.forEach((link) => {
     const section = document.getElementById(link.dataset.nav!);
     if (!section) return;
@@ -85,6 +93,7 @@ if (reduce) {
         if (!self.isActive) return link.removeAttribute('aria-current');
         links.forEach((l) => l.removeAttribute('aria-current'));
         link.setAttribute('aria-current', 'true');
+        revealInNav(link);
       },
     });
   });

@@ -1,7 +1,6 @@
 ---
 import { Image } from 'astro:assets';
 import Icon from './Icon.astro';
-import { SITE } from '../data/site';
 import workcell from '../assets/photos/ur5-lab-workcell.jpg';
 ---
 <section class="hero" id="top">
@@ -13,9 +12,6 @@ import workcell from '../assets/photos/ur5-lab-workcell.jpg';
       <div class="btn-row" data-hero>
         <a class="btn btn--primary" href="#video"><Icon name="play" /> Watch the video</a>
         <a class="btn btn--ghost" href="#twin"><Icon name="rotate" /> See the digital twin</a>
-        <a class="btn btn--ghost btn--icon" href={SITE.x} target="_blank" rel="noopener" aria-label="RuRobotics on X">
-          <Icon name="x" size={16} /><span aria-hidden="true">X</span>
-        </a>
       </div>
     </div>
     <figure class="hero__media hud" data-hero-media>
@@ -40,12 +36,12 @@ import workcell from '../assets/photos/ur5-lab-workcell.jpg';
           <polyline points="866,268 960,380 960,392" />
           <polyline points="150,860 250,720 330,720" />
         </svg>
-        <span class="hud__dot" style="left:64.2%;top:17.2%"></span>
-        <span class="hud__dot" style="left:72.2%;top:17.9%;animation-delay:.8s"></span>
-        <span class="hud__dot" style="left:12.5%;top:57.3%;animation-delay:1.6s"></span>
-        <span class="hud__label hud__label--left" style="left:45%;top:22.67%">Gripper</span>
-        <span class="hud__label hud__label--below" style="left:80%;top:26.1%">Wrist camera</span>
-        <span class="hud__label hud__label--right" style="left:27.5%;top:48%">Mission plan → simulation</span>
+        <span class="hud__dot hud__dot--1"></span>
+        <span class="hud__dot hud__dot--2"></span>
+        <span class="hud__dot hud__dot--3"></span>
+        <span class="hud__label hud__label--left hud__label--gripper">Gripper</span>
+        <span class="hud__label hud__label--below hud__label--camera">Wrist camera</span>
+        <span class="hud__label hud__label--right hud__label--plan">Mission plan → simulation</span>
       </div>
       <figcaption>Our UR5e in the Haifa lab</figcaption>
     </figure>

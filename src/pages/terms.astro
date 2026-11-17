@@ -1,0 +1,64 @@
+---
+import Page from '../layouts/Page.astro';
+import LegalPage from '../components/LegalPage.astro';
+import { SITE } from '../data/site';
+
+const toc = [
+  { id: 'scope', label: 'What these terms cover' },
+  { id: 'services', label: 'Our services' },
+  { id: 'pricing', label: 'Pricing shown on this site' },
+  { id: 'use', label: 'Using this site' },
+  { id: 'ip', label: 'Intellectual property' },
+  { id: 'links', label: 'Links and third parties' },
+  { id: 'warranty', label: 'No warranty' },
+  { id: 'liability', label: 'Limitation of liability' },
+  { id: 'law', label: 'Governing law' },
+  { id: 'changes', label: 'Changes' },
+  { id: 'contact', label: 'Contact' },
+];
+---
+<Page
+  title="Terms of Use — RuRobotics"
+  description="The terms that govern use of the RuRobotics website: our services, pricing shown on the site, intellectual property, liability and governing law."
+>
+  <LegalPage eyebrow="Legal" title="Terms of Use" meta="Effective 16 November 2026 · Last reviewed 16 November 2026" toc={toc}>
+    <h2 id="scope">What these terms cover</h2>
+    <p>These terms govern your use of this website, operated by <strong>RuRobotics</strong> of {SITE.location} ("we", "us"). By using the site you agree to them. They cover the website only. Any robotics service we provide to your company is governed by a separate written agreement signed by both parties.</p>
+
+    <h2 id="services">Our services</h2>
+    <p>RuRobotics provides software and engineering services that let industrial robot arms a factory already owns perform new missions. Our standard engagement is described on the home page: a diagnosis visit, a mission planned and proven in simulation, a three-month paid pilot on your own robot and, if the pilot meets the agreed KPIs, a two-year contract.</p>
+    <p>Nothing on this site is an offer capable of acceptance. What we will deliver for you, the acceptance criteria, timelines and the price are set out in the written pilot agreement, which prevails over anything on this site.</p>
+
+    <h2 id="pricing">Pricing shown on this site</h2>
+    <p>The pricing section on the home page is a summary of our standard pilot pricing in US dollars, excluding VAT and other applicable taxes. It is accurate as of the date at the top of this page. Hardware we supply is invoiced at our cost with no markup, and we will show you the supplier invoice. Prices for the two-year contract are agreed per mission after the pilot. We will never charge you anything that is not in a document you have signed.</p>
+
+    <h2 id="use">Using this site</h2>
+    <p>You may browse this site and share links to it. You may not:</p>
+    <ul>
+      <li>attempt to gain unauthorised access to the site or its hosting, or interfere with its operation;</li>
+      <li>scrape the site at a rate that degrades it for other visitors;</li>
+      <li>use our name, logo or photographs to suggest an endorsement or relationship that does not exist.</li>
+    </ul>
+
+    <h2 id="ip">Intellectual property</h2>
+    <p>The text, logos, photographs, diagrams and video on this site belong to RuRobotics or are used with permission, and are protected by copyright and trademark law. The names of customers and partners mentioned on the site are trademarks of their respective owners and are used to describe our work with them. The 3D robot model is derived from MuJoCo Menagerie under the BSD-3-Clause license, and the Inter font is used under the SIL Open Font License.</p>
+
+    <h2 id="links">Links and third parties</h2>
+    <p>The site links to LinkedIn, X and GitHub. Those services are not under our control and we are not responsible for their content or their handling of your data.</p>
+
+    <h2 id="warranty">No warranty</h2>
+    <p>The site is provided "as is" for general information. We work to keep it accurate and up to date, but we do not warrant that it is error-free or always available. Results described for customers, in the lab or in the simulation on this site are specific to those missions and do not guarantee results for yours; what we commit to for your factory is set out in the pilot agreement.</p>
+
+    <h2 id="liability">Limitation of liability</h2>
+    <p>To the extent permitted by law, RuRobotics is not liable for any indirect or consequential loss arising from your use of this website. Nothing in these terms limits liability that cannot be limited under applicable law, including liability for fraud or for death or personal injury caused by negligence.</p>
+
+    <h2 id="law">Governing law</h2>
+    <p>These terms are governed by the laws of the State of Israel. Any dispute about this website will be brought in the competent courts of Haifa, Israel. This does not affect mandatory consumer protections you may have where you live.</p>
+
+    <h2 id="changes">Changes</h2>
+    <p>We may update these terms. The current version is always at this address and the date at the top shows when it last changed.</p>
+
+    <h2 id="contact">Contact</h2>
+    <p>RuRobotics, {SITE.location}<br /><a href={`mailto:${SITE.email}`}>{SITE.email}</a></p>
+  </LegalPage>
+</Page>

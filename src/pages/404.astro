@@ -1,0 +1,17 @@
+---
+import Page from '../layouts/Page.astro';
+import { asset } from '../lib/url';
+---
+<Page title="Page not found — RuRobotics" description="This page does not exist. Everything about RuRobotics is on the home page." noindex>
+  <section class="notfound">
+    <div class="container">
+      <p class="eyebrow">404</p>
+      <h1>That page is not on our line.</h1>
+      <p class="lead">The address may be mistyped, or the page has moved. Everything about RuRobotics is on the home page.</p>
+      <div class="btn-row">
+        <a class="btn btn--primary" href={asset('')}>Back to the home page</a>
+        <a class="btn btn--ghost" href={`${asset('')}#contact`}>Contact us</a>
+      </div>
+    </div>
+  </section>
+</Page>
