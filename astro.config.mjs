@@ -28,11 +28,10 @@ export default defineConfig({
         "base-uri 'self'",
         "form-action 'self'",
       ],
-      // three.js (inside model-viewer) instantiates a WebAssembly decoder on load.
+      // The digital twin compiles MuJoCo's WebAssembly physics engine.
       scriptDirective: { resources: ["'self'", "'wasm-unsafe-eval'"] },
-      // model-viewer's shadow-DOM stylesheet. If you upgrade @google/model-viewer and the browser
-      // console reports a blocked inline style, replace this with the hash it prints.
-      styleDirective: { hashes: ['sha256-PXtZZkJMMyc18o/DN1ZEFOJ2qEGq95IQbVaJFMOXOb0='] },
     },
   },
+  // The digital twin's physics worker imports MuJoCo's ES-module WebAssembly loader, so workers build as ES modules.
+  vite: { worker: { format: 'es' } },
 });

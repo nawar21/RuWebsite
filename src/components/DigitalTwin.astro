@@ -1,84 +1,91 @@
 ---
 import { asset } from '../lib/url';
+import { CASES } from '../scripts/twin/cases.ts';
 ---
 <section class="section" id="twin" aria-labelledby="twin-title">
   <div class="container">
-    <div class="twin">
-      <div class="twin__copy reveal">
-        <p class="eyebrow">Digital twin</p>
-        <h2 id="twin-title">Proven in simulation <span class="accent">before your robot moves.</span></h2>
-        <p class="lead">Every mission is planned and tested on a simulated copy of the cell first. When it runs on your line, it has already run here.</p>
-        <ul class="twin__points">
-          <li><strong>Same kinematics</strong> as the arm on your floor</li>
-          <li><strong>No downtime</strong> while the mission is planned</li>
-          <li><strong>Drag to look around.</strong> This is a UR5e running a pick-and-place loop.</li>
-        </ul>
+    <header class="section__head reveal">
+      <p class="eyebrow">Digital twin</p>
+      <h2 id="twin-title">Proven in simulation <span class="accent">before your robot moves.</span></h2>
+      <p class="lead">A UR5e palletizes an infeed line in a physics simulation of the cell, running live in your browser. Every loop it meets ten things that go wrong on real floors, detects each one with a check, and recovers on its own.</p>
+    </header>
+
+    <figure class="twin__stage reveal" data-model={asset('models/ur5e.glb')}>
+      <div class="twin__view">
+        <div class="twin__loading" aria-hidden="true"><span></span></div>
+        <div class="twin__top">
+          <p class="twin__status" data-tone="run"><span class="twin__lamp" aria-hidden="true"></span><span class="twin__status-text">Loading simulation</span></p>
+          <p class="twin__clock" aria-hidden="true">MuJoCo · 500 Hz</p>
+          <button class="twin__toggle" type="button" hidden>Pause</button>
+        </div>
+        <div class="twin__banner" hidden>
+          <p class="twin__banner-n"></p>
+          <p class="twin__banner-title"></p>
+          <p class="twin__banner-detail"></p>
+        </div>
+        <p class="twin__fallback" hidden>The simulation needs WebGL and WebAssembly. The ten cases it runs are listed below.</p>
       </div>
-      <figure class="twin__stage reveal">
-        <model-viewer
-          data-src={asset('models/ur5e.glb')}
-          alt="3D model of a UR5e robot arm running a pick-and-place motion"
-          camera-controls
-          disable-zoom
-          touch-action="pan-y"
-          interaction-prompt="none"
-          animation-name="PickAndPlace"
-          shadow-intensity="1"
-          shadow-softness="0.8"
-          exposure="1.05"
-          environment-image="neutral"
-          camera-orbit="35deg 72deg 2.1m"
-          field-of-view="28deg"
-          camera-target="0m 0.42m 0m"
-          min-camera-orbit="auto 20deg auto"
-          max-camera-orbit="auto 95deg auto"
-        >
-          <div class="twin__loading" slot="poster" aria-hidden="true"><span></span></div>
-        </model-viewer>
-        <span class="hud__readout twin__readout" aria-hidden="true">SIM · UR5e · 6 DOF</span>
-        <button class="twin__toggle" type="button" aria-pressed="false" hidden>Pause motion</button>
-        <figcaption>
-          UR5e model from <a href="https://github.com/google-deepmind/mujoco_menagerie" target="_blank" rel="noopener">MuJoCo Menagerie</a>
-          (<a href={asset('models/LICENSE-ur5e.txt')}>BSD-3</a>)
-        </figcaption>
-      </figure>
-    </div>
+      <div class="twin__console">
+        <dl class="twin__stats">
+          <div><dt>Placed</dt><dd data-stat="placed">0</dd></div>
+          <div><dt>Rejected</dt><dd data-stat="rejected">0</dd></div>
+          <div><dt>Sorted</dt><dd data-stat="sorted">0</dd></div>
+          <div><dt>Pallet</dt><dd data-stat="pallet">0/12</dd></div>
+          <div><dt>Generation</dt><dd data-stat="generation">1</dd></div>
+          <div><dt>Edge cases</dt><dd data-stat="edges">0/10</dd></div>
+        </dl>
+        <p class="twin__tool">Vacuum 0 kPa · Payload 0.0 kg · Speed 100%</p>
+        <div class="twin__log" role="log" aria-live="off" aria-label="Cell event log"></div>
+      </div>
+      <figcaption>
+        Live physics: the arm's servos, the vacuum grip and every carton's mass and friction are simulated
+        in <a href="https://github.com/google-deepmind/mujoco" target="_blank" rel="noopener">MuJoCo</a> (Apache-2.0) at 500 Hz.
+        The cases are scripted; how each one plays out is not. Case names follow the RuRobotics failure taxonomy. Drag sideways to look around.
+        UR5e model and dynamics from <a href="https://github.com/google-deepmind/mujoco_menagerie" target="_blank" rel="noopener">MuJoCo Menagerie</a>
+        (<a href={asset('models/LICENSE-ur5e.txt')}>BSD-3</a>).
+      </figcaption>
+    </figure>
+
+    <ol class="twin__cases reveal" aria-label="Edge cases the cell handles">
+      {CASES.map((c) => (
+        <li class="twin__case" data-case={c.n}>
+          <span class="twin__case-n" aria-hidden="true">{c.n}</span>
+          <div>
+            <h3>{c.title}</h3>
+            <p><code>{c.code}</code> {c.detect}</p>
+            <p class="twin__case-fix">{c.response}</p>
+          </div>
+        </li>
+      ))}
+    </ol>
   </div>
 </section>
 
 <script>
-  // Load model-viewer (three.js, ~1 MB) only when the section is about to scroll into view.
-  const viewer = document.querySelector<HTMLElement & { play?: () => void; pause?: () => void; paused?: boolean }>('#twin model-viewer');
-  const toggle = document.querySelector<HTMLButtonElement>('.twin__toggle');
-  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // Load three.js and the cell (~200 kB gzip + the 1.1 MB robot model) only when the section nears the viewport.
+  const root = document.querySelector<HTMLElement>('#twin .twin__stage');
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    || (import.meta.env.DEV && new URLSearchParams(location.search).has('reduced'));
 
-  if (viewer) {
+  if (root) {
+    const fail = () => {
+      root.classList.add('is-failed');
+      root.querySelector<HTMLElement>('.twin__fallback')!.hidden = false;
+    };
     const load = async () => {
-      await import('@google/model-viewer');
-      viewer.setAttribute('src', viewer.dataset.src!);
-      if (!reduce) viewer.setAttribute('autoplay', '');
-      viewer.addEventListener('load', () => {
-        viewer.classList.add('is-loaded');
-        if (toggle) {
-          toggle.hidden = false;
-          const sync = () => {
-            const paused = viewer.paused !== false;
-            toggle.textContent = paused ? 'Play motion' : 'Pause motion';
-            toggle.setAttribute('aria-pressed', String(paused));
-          };
-          sync();
-          toggle.addEventListener('click', () => {
-            viewer.paused ? viewer.play?.() : viewer.pause?.();
-            sync();
-          });
-        }
-      }, { once: true });
+      try {
+        const { mountTwin } = await import('../scripts/twin/twin');
+        await mountTwin(root, { modelUrl: root.dataset.model!, reduced });
+      } catch (err) {
+        console.error('Digital twin failed to start', err);
+        fail();
+      }
     };
     if ('IntersectionObserver' in window) {
       const io = new IntersectionObserver((entries) => {
         if (entries.some((e) => e.isIntersecting)) { io.disconnect(); load(); }
       }, { rootMargin: '600px 0px' });
-      io.observe(viewer);
+      io.observe(root);
     } else {
       load();
     }

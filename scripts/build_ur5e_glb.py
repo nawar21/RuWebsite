@@ -1,4 +1,4 @@
-"""Build public/models/ur5e.glb: an animated UR5e for the <model-viewer> section.
+"""Build public/models/ur5e.glb: the UR5e the digital twin (src/scripts/twin/) poses joint by joint.
 
 Source meshes and kinematics: MuJoCo Menagerie `universal_robots_ur5e`
 (BSD-3-Clause, Copyright 2018 ROS Industrial Consortium).

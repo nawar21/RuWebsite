@@ -861,60 +861,162 @@ html.lenis, html.lenis body { scroll-behavior: auto; }
 /* Active nav link (set by ScrollTrigger) */
 .nav__links a[aria-current] { color: var(--text); background: rgba(0,0,0,0.05); }
 
-/* Digital twin */
+/* Digital twin: a simulated palletizing cell (three.js), its HUD, console and the ten edge cases */
 #twin { background: #fff; }
-.twin { display: grid; gap: 40px; align-items: center; }
-@media (min-width: 960px) { .twin { grid-template-columns: 0.9fr 1.1fr; gap: 64px; } }
-.twin__copy h2 { margin-bottom: 16px; }
-.twin__points { list-style: none; margin: 28px 0 0; padding: 0; display: grid; gap: 12px; }
-.twin__points li {
-  padding: 14px 18px; border-radius: 14px; background: #f5f5f7;
-  color: var(--muted); font-size: 0.98rem;
-}
-.twin__points strong { color: var(--text); font-weight: 600; }
 .twin__stage {
   position: relative; margin: 0;
-  aspect-ratio: 1 / 1; border-radius: 28px; overflow: hidden;
-  background:
-    radial-gradient(70% 60% at 50% 35%, #ffffff 0%, #eef1f6 70%, #e6eaf1 100%);
-  box-shadow: 0 30px 60px -30px rgba(0,0,0,0.25), inset 0 0 0 1px rgba(0,0,0,0.04);
+  border-radius: 28px; overflow: hidden;
+  background: #fff;
+  box-shadow: 0 30px 60px -30px rgba(0,0,0,0.22), inset 0 0 0 1px rgba(0,0,0,0.06);
 }
-.twin__stage::before { /* faint floor grid */
-  content: ""; position: absolute; inset: 0; pointer-events: none;
-  background-image:
-    linear-gradient(rgba(0,113,227,0.07) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0,113,227,0.07) 1px, transparent 1px);
-  background-size: 36px 36px;
-  -webkit-mask-image: radial-gradient(60% 45% at 50% 78%, #000, transparent 75%);
-  mask-image: radial-gradient(60% 45% at 50% 78%, #000, transparent 75%);
+.twin__view {
+  position: relative; aspect-ratio: 16 / 10; overflow: hidden;
+  background: radial-gradient(80% 70% at 50% 30%, #ffffff 0%, #f1f3f7 65%, #e7eaf0 100%);
+  touch-action: pan-y; cursor: grab;
 }
-.twin__stage model-viewer {
-  position: absolute; inset: 0; width: 100%; height: 100%;
-  background: transparent; --poster-color: transparent;
-  --progress-bar-color: var(--blue);
-}
-.twin__stage model-viewer:focus-visible { outline: 2px solid var(--blue); outline-offset: -4px; border-radius: 28px; }
+.twin__view:active { cursor: grabbing; }
+@media (max-width: 600px) { .twin__view { aspect-ratio: 1 / 1; } }
+.twin__canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .twin__loading { position: absolute; inset: 0; display: grid; place-items: center; }
 .twin__loading span {
   width: 36px; height: 36px; border-radius: 50%;
   border: 3px solid rgba(0,113,227,0.18); border-top-color: var(--blue);
   animation: twin-spin 0.9s linear infinite;
 }
+.twin__stage.is-loaded .twin__loading, .twin__stage.is-failed .twin__loading { display: none; }
 @keyframes twin-spin { to { transform: rotate(360deg); } }
-.twin__readout { top: 18px; left: 18px; color: #0b3d75; background: rgba(255,255,255,0.8); border-color: rgba(0,113,227,0.3); }
+
+.twin__top {
+  position: absolute; top: 14px; left: 14px; right: 14px; z-index: 2;
+  display: flex; align-items: center; gap: 10px; pointer-events: none;
+}
+.twin__status, .twin__clock, .twin__toggle {
+  margin: 0; border-radius: 999px; font-size: 0.74rem; line-height: 1;
+  background: rgba(255,255,255,0.9); box-shadow: 0 1px 2px rgba(0,0,0,0.06), inset 0 0 0 1px rgba(0,0,0,0.08);
+  -webkit-backdrop-filter: saturate(180%) blur(12px); backdrop-filter: saturate(180%) blur(12px);
+}
+.twin__status {
+  display: inline-flex; align-items: center; gap: 7px; padding: 7px 11px 7px 9px;
+  font-weight: 600; letter-spacing: 0.02em; color: #1d1d1f; white-space: nowrap;
+}
+.twin__lamp { width: 8px; height: 8px; border-radius: 50%; background: #30d158; box-shadow: 0 0 0 3px rgba(48,209,88,0.18); }
+.twin__status[data-tone="hold"] .twin__lamp { background: #ffb000; box-shadow: 0 0 0 3px rgba(255,176,0,0.2); }
+.twin__status[data-tone="stop"] .twin__lamp { background: #ff3b30; box-shadow: 0 0 0 3px rgba(255,59,48,0.2); }
+.twin__clock {
+  padding: 7px 10px; color: #3a3a3c;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 0.7rem; letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
 .twin__toggle {
-  position: absolute; right: 16px; top: 14px; z-index: 2;
-  font: 500 0.8rem var(--font-body); color: var(--text);
-  padding: 6px 12px; border-radius: 999px; cursor: pointer;
-  background: rgba(255,255,255,0.85); border: 1px solid rgba(0,0,0,0.1);
+  margin-left: auto; pointer-events: auto; cursor: pointer;
+  padding: 7px 14px; font: 600 0.78rem var(--font-body); color: #1d1d1f; border: 0;
 }
 .twin__toggle:hover { background: #fff; }
-.twin__stage figcaption {
-  position: absolute; left: 0; right: 0; bottom: 12px; text-align: center;
-  font-size: 0.72rem; color: var(--muted); pointer-events: none;
+.twin__toggle:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+.twin__banner {
+  position: absolute; left: 14px; bottom: 14px; z-index: 2; max-width: min(380px, calc(100% - 28px));
+  padding: 12px 14px 12px 16px; border-radius: 16px; pointer-events: none;
+  background: rgba(255,255,255,0.94); box-shadow: 0 12px 30px -12px rgba(0,0,0,0.25), inset 3px 0 0 #0071e3;
+  -webkit-backdrop-filter: saturate(180%) blur(14px); backdrop-filter: saturate(180%) blur(14px);
 }
-.twin__stage figcaption a { pointer-events: auto; color: inherit; }
-@media (prefers-reduced-motion: reduce) { .twin__loading span { animation: none; } }
+.twin__banner[hidden] { display: none; }
+.twin__banner p { margin: 0; }
+.twin__banner-n { font: 600 0.68rem ui-monospace, "SF Mono", Menlo, Consolas, monospace; color: #0066cc; letter-spacing: 0.02em; }
+.twin__banner-title { margin-top: 3px !important; font-weight: 600; font-size: 0.98rem; color: #1d1d1f; letter-spacing: -0.01em; }
+.twin__banner-detail { margin-top: 2px !important; font-size: 0.82rem; line-height: 1.35; color: #424245; }
+@media (max-width: 600px) {
+  .twin__banner { left: 10px; bottom: 10px; padding: 9px 12px 9px 14px; border-radius: 14px; }
+  .twin__banner-title { font-size: 0.9rem; }
+  .twin__banner-detail { display: none; }
+}
+@media (min-width: 900px) { .twin__banner { animation: twin-in 0.35s cubic-bezier(.2,.8,.2,1); } }
+@keyframes twin-in { from { opacity: 0; transform: translateY(8px); } }
+
+.twin__fallback {
+  position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; margin: 0;
+  text-align: center; color: var(--muted); font-size: 0.95rem;
+}
+.twin__fallback[hidden] { display: none; }
+
+.twin__console {
+  display: grid; gap: 10px 24px; padding: 16px 20px 6px;
+  border-top: 1px solid rgba(0,0,0,0.07); background: #fff;
+}
+@media (min-width: 900px) {
+  .twin__console { grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); grid-template-rows: auto 1fr; padding: 18px 24px 6px; }
+  .twin__stats { grid-column: 1; }
+  .twin__tool { grid-column: 1; }
+  .twin__log { grid-column: 2; grid-row: 1 / span 2; }
+}
+.twin__stats {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 12px; margin: 0;
+}
+.twin__stats div { min-width: 0; }
+.twin__stats dt { font-size: 0.7rem; color: #6e6e73; letter-spacing: 0; }
+.twin__stats dd {
+  margin: 1px 0 0; font-size: 1.15rem; font-weight: 600; color: #1d1d1f; letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.twin__tool {
+  margin: 0; font: 0.72rem ui-monospace, "SF Mono", Menlo, Consolas, monospace; color: #424245;
+  font-variant-numeric: tabular-nums; overflow-wrap: anywhere;
+}
+.twin__log { min-height: 7.6em; font-size: 0.76rem; line-height: 1.3; }
+.twin__line {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; margin: 0; padding: 3px 0 3px 12px;
+  position: relative; color: #1d1d1f;
+}
+.twin__line::before {
+  content: ""; position: absolute; left: 0; top: 0.72em; width: 6px; height: 6px; border-radius: 50%; background: #aeaeb2;
+}
+.twin__line[data-tone="ok"]::before, .twin__line[data-tone="run"]::before { background: #30d158; }
+.twin__line[data-tone="edge"]::before { background: #0071e3; }
+.twin__line[data-tone="edge"] { font-weight: 600; }
+.twin__line[data-tone="stop"]::before { background: #ff3b30; }
+.twin__line[data-tone="hold"]::before { background: #ffb000; }
+.twin__time { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; color: #6e6e73; font-weight: 400; font-variant-numeric: tabular-nums; }
+@media (max-width: 600px) {
+  .twin__console { padding: 14px 14px 4px; }
+  .twin__line:nth-child(n+5) { display: none; }
+  .twin__log { min-height: 0; }
+}
+.twin__stage figcaption {
+  padding: 8px 20px 16px; font-size: 0.72rem; line-height: 1.45; color: #6e6e73;
+}
+@media (min-width: 900px) { .twin__stage figcaption { padding: 6px 24px 18px; } }
+.twin__stage figcaption a { color: inherit; }
+
+.twin__cases {
+  list-style: none; margin: 28px 0 0; padding: 0;
+  display: grid; gap: 12px;
+}
+@media (min-width: 760px) { .twin__cases { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.twin__case {
+  display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 14px; align-items: start;
+  padding: 16px 18px; border-radius: 18px; background: #f5f5f7;
+  transition: background-color .3s, box-shadow .3s;
+}
+.twin__case-n {
+  display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%;
+  font-size: 0.82rem; font-weight: 600; color: #1d1d1f; background: #fff; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1);
+  transition: background-color .3s, color .3s;
+}
+.twin__case h3 { font-size: 1.02rem; line-height: 1.3; letter-spacing: -0.015em; margin: 4px 0 4px; }
+.twin__case p { margin: 0; font-size: 0.9rem; line-height: 1.42; color: #6e6e73; }
+.twin__case p + p { margin-top: 4px; }
+.twin__case-fix { color: #1d1d1f !important; }
+.twin__case code {
+  font: 0.74rem ui-monospace, "SF Mono", Menlo, Consolas, monospace; color: #1d1d1f;
+  padding: 1px 6px; border-radius: 6px; background: rgba(0,0,0,0.06); white-space: nowrap;
+}
+.twin__case.is-done .twin__case-n { background: #0071e3; color: #fff; box-shadow: none; }
+.twin__case.is-active { background: #fff; box-shadow: 0 18px 40px -18px rgba(0,113,227,0.35), inset 0 0 0 1px rgba(0,113,227,0.3); }
+@media (prefers-reduced-motion: reduce) {
+  .twin__loading span { animation: none; }
+  .twin__banner { animation: none; }
+  .twin__case, .twin__case-n { transition: none; }
+}
 
 /* How it works: on wide screens the loop stays put while the steps scroll past it */
 @media (min-width: 1000px) {
