@@ -111,19 +111,6 @@ export const CORE_TEAM: Person[] = [
     creds: ['Technion CS + Mathematics', 'CGGC research · RL + 3D vision'],
     linkedin: 'https://www.linkedin.com/in/nawar-sgier-24269519b/',
   },
-  {
-    initials: 'SS',
-    name: 'Subhi Salami',
-    role: 'R&D · Co-founder',
-    creds: ['Automation & robotics engineer', 'PLC · Siemens · Cognex · 5 years on factory floors'],
-    linkedin: 'https://www.linkedin.com/in/subhisalami/',
-  },
-  {
-    initials: 'MM',
-    name: 'Mutaz Manaa',
-    role: 'Motion planning',
-    creds: ['Ran an algorithms team at Mobileye', 'Geometry · calibration · planning'],
-  },
 ];
 
 export const ADVISORS: Person[] = [
